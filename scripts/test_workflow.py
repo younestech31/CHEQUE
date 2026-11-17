@@ -107,6 +107,9 @@ db.execute("INSERT INTO bank_debit_reconciliations(bank_entry_id,amount_minor,re
 ledger_after=db.execute("SELECT SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END) FROM treasury_ledger").fetchone()[0]
 assert ledger_after==ledger_before,(ledger_before,ledger_after)
 blocked(lambda:db.execute("INSERT INTO bank_debit_reconciliations(bank_entry_id,amount_minor,reconciliation_type,payment_id) VALUES(3,1,'payment',1)"),'bank debit reconciliation ceiling')
+db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,debit_minor) VALUES('ST-12','2026-11-30','2026-11-09',30000)")
+blocked(lambda:db.execute("INSERT INTO bank_debit_reconciliations(bank_entry_id,amount_minor,reconciliation_type,payment_id) VALUES(4,1,'payment',1)"),'cannot match a future-dated payment')
+
 db.execute("INSERT INTO bank_debit_reconciliations(bank_entry_id,amount_minor,reconciliation_type) VALUES(2,10000,'external')")
 assert db.execute("SELECT amount_minor,direction FROM treasury_ledger WHERE statement_entry_id=2").fetchone()==(10000,'out')
 blocked(lambda:db.execute("INSERT INTO bank_debit_reconciliations(bank_entry_id,amount_minor,reconciliation_type) VALUES(2,10000,'external')"),'external debit cannot be posted twice')

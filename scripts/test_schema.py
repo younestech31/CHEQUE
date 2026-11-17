@@ -1,6 +1,5 @@
 from pathlib import Path
 import sqlite3
-
 root=Path(__file__).resolve().parents[1]
 db=sqlite3.connect(':memory:')
 db.execute('PRAGMA foreign_keys=ON')
@@ -16,12 +15,10 @@ for column in ('external_reference','notes'):
  if column not in {r[1] for r in db.execute('PRAGMA table_info(outgoing_payments)')}:
   db.execute('ALTER TABLE outgoing_payments ADD COLUMN ' + column + ' TEXT')
 db.executescript((root/'src-tauri/migrations/0004_payments_and_freezes.sql').read_text(encoding='utf-8'))
-
 def blocked(fn,label):
  try: fn()
  except sqlite3.IntegrityError: print('PASS',label); return
  raise AssertionError('Expected blocked operation: '+label)
-
 db.execute("INSERT INTO clients(full_name) VALUES('Client')")
 db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,credit_minor) VALUES('ST-1','2026-11-01','2026-11-01',100000)")
 db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(1,'2026-11-01',100000)")
@@ -37,5 +34,5 @@ assert db.execute("SELECT released_at FROM freezes WHERE id=1").fetchone()[0]=='
 db.execute("UPDATE outgoing_payments SET status='executed',execution_date='2026-11-05' WHERE id=1")
 assert db.execute("SELECT amount_minor FROM treasury_ledger WHERE payment_id=1 AND direction='out'").fetchone()[0]==10000
 assert db.execute("SELECT SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END) FROM treasury_ledger").fetchone()[0]==90000
-blocked(lambda:db.execute("INSERT INTO freezes(allocation_id,amount_minor,reason,frozen_at) VALUES(1,51000,'يتجاوز المستحق المتبقي','2026-11-06')"),'new freeze cannot overlap executed payment and active freeze')
+blocked(lambda:db.execute("INSERT INTO freezes(allocation_id,amount_minor,reason,frozen_at) VALUES(1,51000,'يتجاوز المستحق المتبقي','2026-11-06')"),'freeze cannot overlap executed payment')
 print('All core schema, freeze and execution-ledger tests passed.')

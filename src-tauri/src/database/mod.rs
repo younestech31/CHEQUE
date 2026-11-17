@@ -104,6 +104,19 @@ impl Database {
             tx.commit()?;
         }
 
+        let v7: Option<i64> = connection.query_row(
+            "SELECT version FROM schema_migrations WHERE version=7",
+            [],
+            |row| row.get(0),
+        ).optional()?;
+
+        if v7.is_none() {
+            let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            tx.execute_batch(include_str!("../../migrations/0007_bank_match_date_guard.sql"))?;
+            tx.execute("INSERT INTO schema_migrations(version) VALUES(7)", [])?;
+            tx.commit()?;
+        }
+
         Ok(Self { connection })
     }
 }

@@ -24,7 +24,7 @@ pub fn create_backup(app:AppHandle,state:State<'_,AppState>)->Result<BackupRow,S
  let path=dir.join(&file_name);
  let mut destination=Connection::open(&path).map_err(|e|e.to_string())?;
  let result=(||{
-  let mut backup=Backup::new(&db.connection,&mut destination).map_err(|e|e.to_string())?;
+  let backup=Backup::new(&db.connection,&mut destination).map_err(|e|e.to_string())?;
   backup.run_to_completion(64,Duration::from_millis(50),None).map_err(|e|e.to_string())?;
   drop(backup);
   let integrity:String=destination.query_row("PRAGMA integrity_check",[],|r|r.get(0)).map_err(|e|e.to_string())?;

@@ -22,6 +22,7 @@ export default function Reports(){
  useEffect(()=>{void Promise.all([refreshBackups(),invoke<Promoter[]>('list_promoters').then(setPromoters),refreshReport('all')]).catch(e=>setError(String(e)))},[]);
  const totals=useMemo(()=>rows.reduce((a,r)=>({allocated:a.allocated+r.allocatedMinor,frozen:a.frozen+r.frozenMinor,reserved:a.reserved+r.reservedMinor,executed:a.executed+r.executedMinor,available:a.available+r.availableMinor}),{allocated:0,frozen:0,reserved:0,executed:0,available:0}),[rows]);
  const filter=async(value:string)=>{setPromoterId(value);setError('');try{await refreshReport(value)}catch(e){setError(String(e))}};
+ const verify=async(fileName:string)=>{setError('');setSuccess('');try{const result=await invoke<{fileName:string;integrity:string;foreignKeyViolations:number}>('verify_backup',{fileName});setSuccess('النسخة سليمة: '+result.fileName+' — فحص SQLite والمفاتيح الخارجية ناجح')}catch(e){setError(String(e))}};
  const create=async()=>{setBusy(true);setError('');setSuccess('');try{const b=await invoke<Backup>('create_backup');setSuccess('تم إنشاء نسخة احتياطية وفحص سلامتها بنجاح: '+b.fileName);await refreshBackups()}catch(e){setError(String(e))}finally{setBusy(false)}};
  const exportCsv=()=>{
   const headers=['رقم التخصيص','المرقي','الزبون','المشروع','نوع العملية','تاريخ التحصيل','مرجع كشف الخزينة','تاريخ التخصيص','المستحق (دج)','المجمد (دج)','المحجوز (دج)','المنفذ (دج)','المتاح (دج)'];
@@ -54,7 +55,7 @@ export default function Reports(){
  <p className="hint">ينشئ البرنامج نسخة مستقلة من قاعدة البيانات باستخدام آلية SQLite للنسخ الحي، ثم ينفذ فحص integrity_check قبل اعتمادها. تحفظ النسخ داخل مجلد بيانات التطبيق على هذا الجهاز.</p>
  <div className="notice"><b>حماية بياناتك</b><p>أنشئ نسخة احتياطية دورياً، وانسخ ملفات النسخ إلى وسيط خارجي آمن. وجود النسخة على الجهاز نفسه لا يحمي من تلف القرص أو فقدانه.</p><button className="primary" disabled={busy} onClick={()=>void create()}>{busy?'جارٍ إنشاء النسخة…':'إنشاء نسخة احتياطية الآن'}</button></div>
  <h3>النسخ المحفوظة</h3>
- <div className="table-wrap"><table><thead><tr><th>اسم الملف</th><th>تاريخ الإنشاء</th><th>الحجم</th><th>المسار المحلي</th></tr></thead><tbody>{backups.map(b=><tr key={b.fileName}><td>{b.fileName}</td><td>{dateLabel(b.createdUnix)}</td><td>{sizeLabel(b.sizeBytes)}</td><td dir="ltr">{b.path}</td></tr>)}</tbody></table>{!backups.length&&<p className="empty">لا توجد نسخ احتياطية بعد</p>}</div>
+ <div className="table-wrap"><table><thead><tr><th>اسم الملف</th><th>تاريخ الإنشاء</th><th>الحجم</th><th>فحص السلامة</th><th>المسار المحلي</th></tr></thead><tbody>{backups.map(b=><tr key={b.fileName}><td>{b.fileName}</td><td>{dateLabel(b.createdUnix)}</td><td>{sizeLabel(b.sizeBytes)}</td><td><button type="button" onClick={()=>void verify(b.fileName)}>فحص النسخة</button></td><td dir="ltr">{b.path}</td></tr>)}</tbody></table>{!backups.length&&<p className="empty">لا توجد نسخ احتياطية بعد</p>}</div>
  </div>
  </div>
 }

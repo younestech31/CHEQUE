@@ -6,8 +6,15 @@ db=sqlite3.connect(':memory:')
 db.execute('PRAGMA foreign_keys=ON')
 db.executescript((root/'src-tauri/migrations/0001_initial.sql').read_text(encoding='utf-8'))
 db.execute("CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT(datetime('now')))")
+for table,column,definition in [('cheques','issue_date','TEXT'),('cheques','notes','TEXT'),('bank_statement_entries','description','TEXT'),('collections','confirmation_reference','TEXT'),('collections','notes','TEXT'),('audit_log','after_json','TEXT')]:
+ columns={r[1] for r in db.execute('PRAGMA table_info(' + table + ')')}
+ if column not in columns:
+  db.execute('ALTER TABLE ' + table + ' ADD COLUMN ' + column + ' ' + definition)
 db.executescript((root/'src-tauri/migrations/0002_cheques_and_statement_workflow.sql').read_text(encoding='utf-8'))
 db.execute("INSERT INTO schema_migrations(version) VALUES(2)")
+columns={r[1] for r in db.execute('PRAGMA table_info(allocations)')}
+if 'operation_type' not in columns:
+ db.execute("ALTER TABLE allocations ADD COLUMN operation_type TEXT NOT NULL DEFAULT 'غير محدد'")
 db.executescript((root/'src-tauri/migrations/0003_classification.sql').read_text(encoding='utf-8'))
 db.execute("INSERT INTO schema_migrations(version) VALUES(3)")
 assert db.execute("SELECT COUNT(*) FROM schema_migrations WHERE version=2").fetchone()[0]==1

@@ -8,6 +8,8 @@ db.executescript((root/'src-tauri/migrations/0001_initial.sql').read_text(encodi
 db.execute("CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT(datetime('now')))")
 db.executescript((root/'src-tauri/migrations/0002_cheques_and_statement_workflow.sql').read_text(encoding='utf-8'))
 db.execute("INSERT INTO schema_migrations(version) VALUES(2)")
+db.executescript((root/'src-tauri/migrations/0003_classification.sql').read_text(encoding='utf-8'))
+db.execute("INSERT INTO schema_migrations(version) VALUES(3)")
 assert db.execute("SELECT COUNT(*) FROM schema_migrations WHERE version=2").fetchone()[0]==1
 assert {r[1] for r in db.execute('PRAGMA table_info(cheques)')} >= {'issue_date','notes'}
 assert {r[1] for r in db.execute('PRAGMA table_info(bank_statement_entries)')} >= {'description'}
@@ -46,4 +48,14 @@ blocked(lambda:db.execute("INSERT INTO collection_cheques(collection_id,cheque_i
 db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,debit_minor) VALUES('ST-11','2026-11-30','2026-11-05',10000)")
 blocked(lambda:db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(2,'2026-11-05',10000)"),'debit entry cannot be confirmed as collection')
 assert db.execute("SELECT SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END) FROM treasury_ledger").fetchone()[0]==120000
-print('All cheque and treasury workflow tests passed.')
+
+db.execute("INSERT INTO clients(full_name) VALUES('Client One'),('Client Two')")
+db.execute("INSERT INTO projects(promoter_id,name) VALUES(1,'Project A')")
+db.execute("INSERT INTO allocations(collection_id,promoter_id,client_id,project_id,allocation_date,amount_minor,operation_type) VALUES(1,1,1,1,'2026-11-06',40000,'إيداع')")
+db.execute("INSERT INTO allocations(collection_id,promoter_id,client_id,allocation_date,amount_minor,operation_type) VALUES(1,2,2,'2026-11-06',30000,'إيداع')")
+blocked(lambda:db.execute("INSERT INTO allocations(collection_id,promoter_id,client_id,allocation_date,amount_minor,operation_type) VALUES(1,1,1,'2026-11-06',1,'إيداع')"),'allocation cannot exceed confirmed collection')
+blocked(lambda:db.execute("INSERT INTO allocations(collection_id,promoter_id,client_id,project_id,allocation_date,amount_minor,operation_type) VALUES(1,2,1,1,'2026-11-06',1,'إيداع')"),'project must belong to selected promoter')
+blocked(lambda:db.execute("UPDATE allocations SET amount_minor=1 WHERE id=1"),'allocation history is immutable')
+blocked(lambda:db.execute("DELETE FROM allocations WHERE id=1"),'allocation history cannot be deleted')
+assert db.execute("SELECT SUM(amount_minor) FROM allocations WHERE collection_id=1").fetchone()[0]==70000
+print('All cheque, treasury and classification workflow tests passed.')

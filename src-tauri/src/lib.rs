@@ -14,7 +14,7 @@ pub fn run() {
    commands::workflow::list_statement_entries,commands::workflow::confirm_collection,
    commands::workflow::list_collections,
    commands::workflow::create_treasury_opening_balance,
-   commands::workflow::get_treasury_opening_balance,
+   commands::workflow::get_treasury_opening_balance,\n   commands::workflow::create_treasury_closing_verification,commands::workflow::list_treasury_closing_verifications,
    commands::workflow::reconcile_bank_debit_with_payment,
    commands::workflow::reconcile_bank_debit_as_external,
    commands::classification::list_promoters,commands::classification::list_clients,

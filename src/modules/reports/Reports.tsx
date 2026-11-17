@@ -28,7 +28,7 @@ export default function Reports(){
   const content='\uFEFF'+[headers,...body].map(line=>line.map(csvCell).join(';')).join('\r\n');
   const url=URL.createObjectURL(new Blob([content],{type:'text/csv;charset=utf-8;'}));
   const link=document.createElement('a');link.href=url;link.download='CHEQUE-financial-report-'+new Date().toISOString().slice(0,10)+'.csv';
-  document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  document.body.appendChild(link);link.click();link.remove();window.setTimeout(()=>URL.revokeObjectURL(url),1000);
  };
  return <div className="work-module">
  <div id="report-print">
@@ -43,7 +43,7 @@ export default function Reports(){
   <article><small>تحويلات منفذة</small><strong>{money(totals.executed)}</strong></article>
   <article><small>المتاح على أسطر التخصيص</small><strong>{money(totals.available)}</strong></article>
  </div>
- <div className="report-actions no-print"><button className="primary" type="button" onClick={exportCsv} disabled={!rows.length}>تصدير Excel (CSV)</button><button type="button" onClick={()=>window.print()}>طباعة / حفظ PDF</button></div>
+ <div className="report-actions no-print"><button className="primary" type="button" onClick={exportCsv} disabled={!rows.length}>تصدير CSV متوافق مع Excel</button><button type="button" onClick={()=>window.print()}>طباعة / حفظ PDF</button></div>
  <div className="table-wrap"><table><thead><tr><th>المرقي</th><th>الزبون</th><th>المشروع</th><th>نوع العملية</th><th>تاريخ التحصيل</th><th>مرجع الكشف</th><th>المستحق</th><th>المجمد</th><th>محجوز</th><th>منفذ</th><th>المتاح</th></tr></thead><tbody>
  {rows.map(r=><tr key={r.allocationId}><td>{r.promoterName}</td><td>{r.clientName}</td><td>{r.projectName||'—'}</td><td>{r.operationType}</td><td>{r.collectionDate}</td><td>{r.statementReference}</td><td>{money(r.allocatedMinor)}</td><td>{money(r.frozenMinor)}</td><td>{money(r.reservedMinor)}</td><td>{money(r.executedMinor)}</td><td>{money(r.availableMinor)}</td></tr>)}
  </tbody></table>{!rows.length&&<p className="empty">لا توجد تخصيصات مطابقة لهذا التقرير</p>}</div>

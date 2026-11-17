@@ -117,6 +117,20 @@ impl Database {
             tx.commit()?;
         }
 
+
+        let v8: Option<i64> = connection.query_row(
+            "SELECT version FROM schema_migrations WHERE version=8",
+            [],
+            |row| row.get(0),
+        ).optional()?;
+
+        if v8.is_none() {
+            let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            tx.execute_batch(include_str!("../../migrations/0008_treasury_closing_verification.sql"))?;
+            tx.execute("INSERT INTO schema_migrations(version) VALUES(8)", [])?;
+            tx.commit()?;
+        }
+
         Ok(Self { connection })
     }
 }

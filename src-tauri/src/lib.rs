@@ -21,7 +21,8 @@ pub fn run() {
    commands::payments::create_freeze,commands::payments::release_freeze,
    commands::payments::create_payment,commands::payments::reserve_payment,
    commands::payments::execute_payment,commands::payments::cancel_payment,commands::payments::list_payments,
-   commands::maintenance::create_backup,commands::maintenance::list_backups
+   commands::maintenance::create_backup,commands::maintenance::list_backups,
+   commands::reports::financial_report
   ])
   .run(tauri::generate_context!()).expect("CHEQUE startup failed");
 }

@@ -80,10 +80,11 @@ required_tables = db.execute("""
  SELECT COUNT(*) FROM sqlite_master
  WHERE type='table' AND name IN (
   'schema_migrations','cheques','bank_statement_entries','collections',
-  'allocations','outgoing_payments','payment_details','treasury_ledger'
+  'allocations','outgoing_payments','payment_details','treasury_ledger',
+  'treasury_opening_balance','bank_debit_reconciliations'
  )
 """).fetchone()[0]
-assert required_tables == 8, required_tables
+assert required_tables == 10, required_tables
 assert db.execute(
  "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4,5,6)"
 ).fetchone()[0] == 5

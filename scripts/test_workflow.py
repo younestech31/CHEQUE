@@ -84,13 +84,13 @@ required_tables = db.execute("""
  WHERE type='table' AND name IN (
   'schema_migrations','cheques','bank_statement_entries','collections',
   'allocations','outgoing_payments','payment_details','treasury_ledger',
-  'treasury_opening_balance','bank_debit_reconciliations'
+  'treasury_opening_balance','bank_debit_reconciliations','treasury_closing_verifications'
  )
 """).fetchone()[0]
 assert required_tables == 11, required_tables
 assert db.execute(
  "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4,5,6,7,8)"
-).fetchone()[0] == 6
+).fetchone()[0] == 7
 assert db.execute("PRAGMA integrity_check").fetchone()[0] == 'ok'
 assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 db.execute("INSERT INTO treasury_opening_balance(id,amount_minor,balance_date,statement_reference) VALUES(1,50000,'2026-11-12','OPEN-1')")
@@ -115,5 +115,58 @@ db.execute("INSERT INTO bank_debit_reconciliations(bank_entry_id,amount_minor,re
 assert db.execute("SELECT amount_minor,direction FROM treasury_ledger WHERE statement_entry_id=2").fetchone()==(10000,'out')
 blocked(lambda:db.execute("INSERT INTO bank_debit_reconciliations(bank_entry_id,amount_minor,reconciliation_type) VALUES(2,10000,'external')"),'external debit cannot be posted twice')
 blocked(lambda:db.execute("UPDATE bank_debit_reconciliations SET amount_minor=1 WHERE bank_entry_id=2"),'debit reconciliation immutable')
+assert db.execute("PRAGMA integrity_check").fetchone()[0]=='ok'
+assert db.execute("PRAGMA foreign_key_check").fetchall()==[]
+
+# Closing verification snapshots: pending items block a matched status even at zero difference.
+db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,credit_minor) VALUES('ST-13','2026-11-30','2026-11-14',20000)")
+credit_entry=db.execute("SELECT last_insert_rowid()").fetchone()[0]
+db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,debit_minor) VALUES('ST-13','2026-11-30','2026-11-14',5000)")
+debit_entry=db.execute("SELECT last_insert_rowid()").fetchone()[0]
+db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(?, '2026-11-14',15000)",(credit_entry,))
+calc_sql="""
+SELECT
+ COALESCE((SELECT SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END)
+  FROM treasury_ledger WHERE movement_date>=? AND movement_date<=?),0),
+ COALESCE((SELECT SUM(credit_minor-COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0))
+  FROM bank_statement_entries e WHERE e.entry_date>=? AND e.entry_date<=?
+   AND e.credit_minor>COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0)),0),
+ COALESCE((SELECT SUM(debit_minor-COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0))
+  FROM bank_statement_entries e WHERE e.entry_date>=? AND e.entry_date<=?
+   AND e.debit_minor>COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0)),0),
+ (SELECT COUNT(*) FROM bank_statement_entries e WHERE e.entry_date>=? AND e.entry_date<=?
+  AND e.credit_minor>COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0)),
+ (SELECT COUNT(*) FROM bank_statement_entries e WHERE e.entry_date>=? AND e.entry_date<=?
+  AND e.debit_minor>COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0))
+"""
+params=('2026-11-12','2026-11-14')*5
+computed,pending_cr,pending_dr,count_cr,count_dr=db.execute(calc_sql,params).fetchone()
+assert (computed,pending_cr,pending_dr,count_cr,count_dr)==(65000,5000,5000,1,1),(computed,pending_cr,pending_dr,count_cr,count_dr)
+difference=computed-65000
+status='pending' if count_cr or count_dr else ('matched' if difference==0 else 'mismatch')
+db.execute("""INSERT INTO treasury_closing_verifications(statement_reference,closing_date,statement_balance_minor,computed_balance_minor,difference_minor,pending_credit_minor,pending_debit_minor,pending_credit_count,pending_debit_count,status)
+ VALUES('ST-13','2026-11-14',65000,?,?,?,?,?,?,'pending')""",(computed,difference,pending_cr,pending_dr,count_cr,count_dr))
+first_close=db.execute("SELECT status,difference_minor,pending_credit_minor,pending_debit_minor FROM treasury_closing_verifications WHERE statement_reference='ST-13'").fetchone()
+assert first_close==('pending',0,5000,5000),first_close
+db.execute("INSERT INTO bank_debit_reconciliations(bank_entry_id,amount_minor,reconciliation_type) VALUES(?,5000,'external')",(debit_entry,))
+db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(?, '2026-11-14',5000)",(credit_entry,))
+computed,pending_cr,pending_dr,count_cr,count_dr=db.execute(calc_sql,('2026-11-12','2026-11-15')*5).fetchone()
+assert (computed,pending_cr,pending_dr,count_cr,count_dr)==(65000,0,0,0,0)
+db.execute("""INSERT INTO treasury_closing_verifications(statement_reference,closing_date,statement_balance_minor,computed_balance_minor,difference_minor,pending_credit_minor,pending_debit_minor,pending_credit_count,pending_debit_count,status)
+ VALUES('ST-13','2026-11-15',65000,?,0,0,0,0,0,'matched')""",(computed,))
+assert db.execute("SELECT status FROM treasury_closing_verifications WHERE closing_date='2026-11-15'").fetchone()[0]=='matched'
+# A one-unit discrepancy is retained as a mismatch; it is never auto-adjusted.
+db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,credit_minor) VALUES('ST-14','2026-11-30','2026-11-16',1000)")
+mismatch_entry=db.execute("SELECT last_insert_rowid()").fetchone()[0]
+db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(?, '2026-11-16',1000)",(mismatch_entry,))
+computed=db.execute("SELECT SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END) FROM treasury_ledger WHERE movement_date>='2026-11-12' AND movement_date<='2026-11-16'").fetchone()[0]
+assert computed==66000,computed
+db.execute("""INSERT INTO treasury_closing_verifications(statement_reference,closing_date,statement_balance_minor,computed_balance_minor,difference_minor,pending_credit_minor,pending_debit_minor,pending_credit_count,pending_debit_count,status)
+ VALUES('ST-14','2026-11-16',65000,?,1000,0,0,0,0,'mismatch')""",(computed,))
+assert db.execute("SELECT status,difference_minor FROM treasury_closing_verifications WHERE statement_reference='ST-14'").fetchone()==('mismatch',1000)
+blocked(lambda:db.execute("UPDATE treasury_closing_verifications SET status='matched' WHERE statement_reference='ST-13'"),'closing verification immutable update')
+blocked(lambda:db.execute("DELETE FROM treasury_closing_verifications WHERE statement_reference='ST-13'"),'closing verification immutable delete')
+blocked(lambda:db.execute("""INSERT INTO treasury_closing_verifications(statement_reference,closing_date,statement_balance_minor,computed_balance_minor,difference_minor,pending_credit_minor,pending_debit_minor,pending_credit_count,pending_debit_count,status)
+ VALUES('ST-13','2026-11-14',65000,65000,0,0,0,0,0,'matched')"""),'duplicate closing period')
 assert db.execute("PRAGMA integrity_check").fetchone()[0]=='ok'
 assert db.execute("PRAGMA foreign_key_check").fetchall()==[]

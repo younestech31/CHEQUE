@@ -39,6 +39,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Generate Tauri icons
         run: python scripts/generate_icons.py
+      - name: Validate generated icons
+        run: python scripts/test_icons.py
       - name: Check Rust backend
         run: cargo check --manifest-path src-tauri/Cargo.toml
 
@@ -54,6 +56,8 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Generate Tauri icons
         run: python scripts/generate_icons.py
+      - name: Validate generated icons
+        run: python scripts/test_icons.py
       - name: Build Windows installers
         run: npm run tauri build
       - name: Upload Windows installers

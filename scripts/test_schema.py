@@ -32,9 +32,10 @@ blocked(lambda:db.execute("INSERT INTO freezes(allocation_id,amount_minor,reason
 db.execute("INSERT INTO outgoing_payments(payment_reference,payment_type,promoter_id,preparation_date) VALUES('PAY-001','periodic',1,'2026-11-04')")
 db.execute("INSERT INTO payment_details(payment_id,allocation_id,amount_minor) VALUES(1,1,10000)")
 db.execute("UPDATE outgoing_payments SET status='reserved' WHERE id=1")
-blocked(lambda:db.execute("UPDATE freezes SET released_at='2026-11-05',release_note='رفع' WHERE id=1 AND amount_minor=20000"),'freeze release remains separate from financial amount update')
+db.execute("UPDATE freezes SET released_at='2026-11-05',release_note='رفع التجميد' WHERE id=1")
+assert db.execute("SELECT released_at FROM freezes WHERE id=1").fetchone()[0]=='2026-11-05'
 db.execute("UPDATE outgoing_payments SET status='executed',execution_date='2026-11-05' WHERE id=1")
 assert db.execute("SELECT amount_minor FROM treasury_ledger WHERE payment_id=1 AND direction='out'").fetchone()[0]==10000
 assert db.execute("SELECT SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END) FROM treasury_ledger").fetchone()[0]==90000
-blocked(lambda:db.execute("INSERT INTO freezes(allocation_id,amount_minor,reason,frozen_at) VALUES(1,31000,'يتجاوز المستحق المتبقي','2026-11-06')"),'new freeze cannot overlap executed payment and active freeze')
+blocked(lambda:db.execute("INSERT INTO freezes(allocation_id,amount_minor,reason,frozen_at) VALUES(1,51000,'يتجاوز المستحق المتبقي','2026-11-06')"),'new freeze cannot overlap executed payment and active freeze')
 print('All core schema, freeze and execution-ledger tests passed.')

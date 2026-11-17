@@ -23,6 +23,8 @@ db.executescript((root/'src-tauri/migrations/0005_lock_payment_detail_moves.sql'
 db.execute("INSERT INTO schema_migrations(version) VALUES(5)")
 db.executescript((root/'src-tauri/migrations/0006_treasury_reconciliation.sql').read_text(encoding='utf-8'))
 db.execute("INSERT INTO schema_migrations(version) VALUES(6)")
+db.executescript((root/'src-tauri/migrations/0007_bank_match_date_guard.sql').read_text(encoding='utf-8'))
+db.execute("INSERT INTO schema_migrations(version) VALUES(7)")
 def blocked(fn,label):
  try: fn()
  except sqlite3.IntegrityError: print('PASS',label); return
@@ -86,8 +88,8 @@ required_tables = db.execute("""
 """).fetchone()[0]
 assert required_tables == 10, required_tables
 assert db.execute(
- "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4,5,6)"
-).fetchone()[0] == 5
+ "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4,5,6,7)"
+).fetchone()[0] == 6
 assert db.execute("PRAGMA integrity_check").fetchone()[0] == 'ok'
 assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 db.execute("INSERT INTO treasury_opening_balance(id,amount_minor,balance_date,statement_reference) VALUES(1,50000,'2026-11-12','OPEN-1')")

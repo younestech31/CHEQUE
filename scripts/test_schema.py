@@ -15,6 +15,7 @@ for column in ('external_reference','notes'):
  if column not in {r[1] for r in db.execute('PRAGMA table_info(outgoing_payments)')}:
   db.execute('ALTER TABLE outgoing_payments ADD COLUMN ' + column + ' TEXT')
 db.executescript((root/'src-tauri/migrations/0004_payments_and_freezes.sql').read_text(encoding='utf-8'))
+db.executescript((root/'src-tauri/migrations/0005_lock_payment_detail_moves.sql').read_text(encoding='utf-8'))
 def blocked(fn,label):
  try: fn()
  except sqlite3.IntegrityError: print('PASS',label); return

@@ -90,6 +90,11 @@ assert db.execute(
 ).fetchone()[0] == 5
 assert db.execute("PRAGMA integrity_check").fetchone()[0] == 'ok'
 assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+db.execute("INSERT INTO treasury_opening_balance(id,amount_minor,balance_date,statement_reference) VALUES(1,50000,'2026-11-12','OPEN-1')")
+cash=db.execute("SELECT COALESCE(SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END),0) FROM treasury_ledger WHERE movement_date >= (SELECT balance_date FROM treasury_opening_balance WHERE id=1)").fetchone()[0]
+assert cash==50000,cash
+db.execute("UPDATE outgoing_payments SET status='reserved' WHERE id=3")
+assert db.execute("SELECT status FROM outgoing_payments WHERE id=3").fetchone()[0]=='reserved'
 
 print('All cheque, treasury, classification, freeze, payment and backup-schema tests passed.')
 

@@ -16,7 +16,7 @@ CREATE TABLE cheque_deposits(
  amount_minor INTEGER NOT NULL CHECK(amount_minor>0),
  notes TEXT
 );
-CREATE TABLE collection_cheques(
+CREATE TABLE IF NOT EXISTS collection_cheques(
  id INTEGER PRIMARY KEY,
  collection_id INTEGER NOT NULL REFERENCES collections(id),
  cheque_id INTEGER NOT NULL REFERENCES cheques(id),

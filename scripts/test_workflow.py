@@ -66,4 +66,19 @@ db.execute("INSERT INTO treasury_ledger(movement_type,movement_date,amount_minor
 db.execute("INSERT INTO outgoing_payments(payment_reference,payment_type,promoter_id,preparation_date) VALUES('PAY-02','exceptional',2,'2026-11-12')")
 db.execute("INSERT INTO payment_details(payment_id,allocation_id,amount_minor) VALUES(2,2,30000)")
 blocked(lambda:db.execute("UPDATE outgoing_payments SET status='reserved' WHERE id=2"),'reservation cannot exceed actual treasury cash')
-print('All cheque, treasury, classification, freeze and payment tests passed.')
+# Backup verification prerequisites: required application schema and migrations must exist.
+required_tables = db.execute("""
+ SELECT COUNT(*) FROM sqlite_master
+ WHERE type='table' AND name IN (
+  'schema_migrations','cheques','bank_statement_entries','collections',
+  'allocations','outgoing_payments','payment_details','treasury_ledger'
+ )
+""").fetchone()[0]
+assert required_tables == 8, required_tables
+assert db.execute(
+ "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4)"
+).fetchone()[0] == 3
+assert db.execute("PRAGMA integrity_check").fetchone()[0] == 'ok'
+assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+
+print('All cheque, treasury, classification, freeze, payment and backup-schema tests passed.')

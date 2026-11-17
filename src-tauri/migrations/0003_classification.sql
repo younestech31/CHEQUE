@@ -1,5 +1,5 @@
 -- Version 3: classification metadata and referential safeguards.
-ALTER TABLE allocations ADD COLUMN operation_type TEXT NOT NULL DEFAULT 'غير محدد';
+-- The operation_type column is added conditionally by the Rust migration runner.
 CREATE INDEX IF NOT EXISTS idx_allocations_promoter_date ON allocations(promoter_id,allocation_date DESC,id DESC);
 CREATE INDEX IF NOT EXISTS idx_allocations_client ON allocations(client_id,allocation_date DESC);
 CREATE INDEX IF NOT EXISTS idx_allocations_collection ON allocations(collection_id,id);

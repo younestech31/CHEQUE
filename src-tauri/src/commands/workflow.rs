@@ -122,3 +122,53 @@ pub fn list_collections(state:State<'_,AppState>)->Result<Vec<CollectionRow>,Str
  let rows=s.query_map([],|r|Ok(CollectionRow{id:r.get(0)?,bank_entry_id:r.get(1)?,collection_date:r.get(2)?,amount_minor:r.get(3)?,confirmation_reference:r.get(4)?,notes:r.get(5)?})).map_err(|e|e.to_string())?;
  rows.collect::<Result<Vec<_>,_>>().map_err(|e|e.to_string())
 }
+
+
+#[tauri::command]
+pub fn create_treasury_opening_balance(
+ state:State<'_,AppState>,amount_minor:i64,balance_date:String,statement_reference:String
+)->Result<(),String>{
+ if amount_minor<=0||!date_ok(&balance_date)||statement_reference.trim().is_empty()||statement_reference.len()>120{
+  return Err("أدخل رصيداً افتتاحياً موجباً وتاريخاً صحيحاً ومرجع كشف الحساب".into())
+ }
+ let mut db=state.db.lock().map_err(|_|lock_error())?;
+ let tx=db.connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|e|e.to_string())?;
+ let exists:i64=tx.query_row("SELECT COUNT(*) FROM treasury_opening_balance",[],|r|r.get(0)).map_err(|e|e.to_string())?;
+ if exists!=0{return Err("تم تسجيل الرصيد الافتتاحي مسبقاً؛ لا يمكن تكراره".into())}
+ tx.execute("INSERT INTO treasury_opening_balance(id,amount_minor,balance_date,statement_reference) VALUES(1,?1,?2,?3)",
+  params![amount_minor,balance_date,statement_reference.trim()]).map_err(|e|e.to_string())?;
+ let id=tx.last_insert_rowid();
+ tx.execute("INSERT INTO audit_log(entity_type,entity_id,action,after_json) VALUES('treasury','1','opening_balance',json_object('amount_minor',?1,'balance_date',?2,'statement_reference',?3))",
+  params![amount_minor,balance_date,statement_reference.trim()]).map_err(|e|e.to_string())?;
+ tx.commit().map_err(|e|e.to_string())?;let _=id;Ok(())
+}
+
+#[tauri::command]
+pub fn reconcile_bank_debit_with_payment(
+ state:State<'_,AppState>,bank_entry_id:i64,payment_id:i64,amount_minor:i64
+)->Result<i64,String>{
+ if bank_entry_id<=0||payment_id<=0||amount_minor<=0{return Err("اختر قيداً مديناً وتحويلاً منفذاً ومبلغاً موجباً".into())}
+ let mut db=state.db.lock().map_err(|_|lock_error())?;
+ let tx=db.connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|e|e.to_string())?;
+ tx.execute("INSERT INTO bank_debit_reconciliations(bank_entry_id,amount_minor,reconciliation_type,payment_id) VALUES(?1,?2,'payment',?3)",
+  params![bank_entry_id,amount_minor,payment_id]).map_err(|e|e.to_string())?;
+ let id=tx.last_insert_rowid();
+ tx.execute("INSERT INTO audit_log(entity_type,entity_id,action,after_json) VALUES('bank_debit_reconciliation',?1,'matched_payment',json_object('bank_entry_id',?2,'payment_id',?3,'amount_minor',?4))",
+  params![id,bank_entry_id,payment_id,amount_minor]).map_err(|e|e.to_string())?;
+ tx.commit().map_err(|e|e.to_string())?;Ok(id)
+}
+
+#[tauri::command]
+pub fn reconcile_bank_debit_as_external(
+ state:State<'_,AppState>,bank_entry_id:i64,amount_minor:i64
+)->Result<i64,String>{
+ if bank_entry_id<=0||amount_minor<=0{return Err("اختر قيداً مديناً ومبلغاً موجباً".into())}
+ let mut db=state.db.lock().map_err(|_|lock_error())?;
+ let tx=db.connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|e|e.to_string())?;
+ tx.execute("INSERT INTO bank_debit_reconciliations(bank_entry_id,amount_minor,reconciliation_type,payment_id) VALUES(?1,?2,'external',NULL)",
+  params![bank_entry_id,amount_minor]).map_err(|e|e.to_string())?;
+ let id=tx.last_insert_rowid();
+ tx.execute("INSERT INTO audit_log(entity_type,entity_id,action,after_json) VALUES('bank_debit_reconciliation',?1,'external_debit',json_object('bank_entry_id',?2,'amount_minor',?3))",
+  params![id,bank_entry_id,amount_minor]).map_err(|e|e.to_string())?;
+ tx.commit().map_err(|e|e.to_string())?;Ok(id)
+}

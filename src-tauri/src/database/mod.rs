@@ -91,6 +91,19 @@ impl Database {
             tx.commit()?;
         }
 
+        let v6: Option<i64> = connection.query_row(
+            "SELECT version FROM schema_migrations WHERE version=6",
+            [],
+            |row| row.get(0),
+        ).optional()?;
+
+        if v6.is_none() {
+            let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            tx.execute_batch(include_str!("../../migrations/0006_treasury_reconciliation.sql"))?;
+            tx.execute("INSERT INTO schema_migrations(version) VALUES(6)", [])?;
+            tx.commit()?;
+        }
+
         Ok(Self { connection })
     }
 }

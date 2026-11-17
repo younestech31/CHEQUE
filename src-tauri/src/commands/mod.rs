@@ -1,4 +1,5 @@
 pub mod workflow;
+pub mod classification;
 use crate::AppState;
 use rusqlite::params;
 use serde::Serialize;

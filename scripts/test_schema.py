@@ -16,6 +16,7 @@ for column in ('external_reference','notes'):
   db.execute('ALTER TABLE outgoing_payments ADD COLUMN ' + column + ' TEXT')
 db.executescript((root/'src-tauri/migrations/0004_payments_and_freezes.sql').read_text(encoding='utf-8'))
 db.executescript((root/'src-tauri/migrations/0005_lock_payment_detail_moves.sql').read_text(encoding='utf-8'))
+db.executescript((root/'src-tauri/migrations/0006_treasury_reconciliation.sql').read_text(encoding='utf-8'))
 def blocked(fn,label):
  try: fn()
  except sqlite3.IntegrityError: print('PASS',label); return
@@ -86,3 +87,7 @@ assert db.execute("""
 """, (2, 2)).fetchone()[0] == 0
 
 print('All core schema, freeze, execution-ledger and financial-report tests passed.')
+
+db.execute("INSERT INTO treasury_opening_balance(id,amount_minor,balance_date,statement_reference) VALUES(1,25000,'2026-11-01','OPEN-1')")
+assert db.execute("SELECT amount_minor,direction FROM treasury_ledger WHERE movement_type='opening_balance'").fetchone()==(25000,'in')
+blocked(lambda:db.execute("INSERT INTO treasury_opening_balance(id,amount_minor,balance_date,statement_reference) VALUES(1,1,'2026-11-01','OPEN-2')"),'opening balance is single-entry')

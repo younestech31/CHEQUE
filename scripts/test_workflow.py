@@ -31,5 +31,5 @@ db.execute("INSERT INTO collection_cheques(collection_id,cheque_id,matched_minor
 blocked(lambda:db.execute("INSERT INTO collection_cheques(collection_id,cheque_id,matched_minor) VALUES(2,1,30000)"),'matched amount cannot exceed deposited amount')
 blocked(lambda:db.execute("INSERT INTO collection_cheques(collection_id,cheque_id,matched_minor) VALUES(1,1,30000)"),'matched amount cannot exceed cheque face value')
 db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,debit_minor) VALUES('ST-11','2026-11-30','2026-11-05',10000)")
-blocked(lambda:db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(3,'2026-11-05',10000)"),'debit entry cannot be confirmed as collection')
+blocked(lambda:db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(2,'2026-11-05',10000)"),'debit entry cannot be confirmed as collection')
 print('All cheque and treasury workflow tests passed.')

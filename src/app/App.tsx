@@ -15,7 +15,7 @@ const money=(n:number)=>new Intl.NumberFormat('ar-DZ',{minimumFractionDigits:2,m
 export default function App(){
  const [page,setPage]=useState<Page>('dashboard'),[summary,setSummary]=useState<Summary|null>(null),[error,setError]=useState('');
  const refresh=()=>invoke<Summary>('dashboard_summary').then(setSummary).catch(e=>setError(String(e)));
- useEffect(()=>{void refresh()},[]);
+ useEffect(()=>{void refresh()},[page]);
  const title=menu.find(x=>x.id===page)?.label;
  return <div className="layout"><aside><h2>CHEQUE</h2><small>إدارة التحصيل والخزينة</small><nav>{menu.map(({id,label,icon:Icon})=><button key={id} className={page===id?'selected':''} onClick={()=>{setPage(id);setError('')}}><Icon size={18}/>{label}</button>)}</nav><small className="offline">● يعمل محلياً على هذا الجهاز</small></aside>
  <main><header>CHEQUE　/　{title}</header><section><p className="eyebrow">إدارة مالية محلية</p><h1>{title}</h1><p>متابعة الشيكات والتحصيلات وتوزيع المستحقات والتحويلات.</p>

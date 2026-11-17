@@ -46,4 +46,42 @@ SELECT a.amount_minor,
 FROM allocations a WHERE a.id=1
 """).fetchone()
 assert report == (60000, 0, 0, 10000, 50000), report
+
+# Exercise the exact financial-report joins and promoter filter against seeded data.
+report_rows = db.execute("""
+ SELECT a.id, pr.name, cl.full_name, pj.name, a.operation_type,
+        c.collection_date, e.statement_reference, a.allocation_date,
+        a.amount_minor,
+        COALESCE((SELECT SUM(f.amount_minor) FROM freezes f
+                  WHERE f.allocation_id=a.id AND f.released_at IS NULL), 0),
+        COALESCE((SELECT SUM(pd.amount_minor) FROM payment_details pd
+                  JOIN outgoing_payments op ON op.id=pd.payment_id
+                  WHERE pd.allocation_id=a.id AND op.status='reserved'), 0),
+        COALESCE((SELECT SUM(pd.amount_minor) FROM payment_details pd
+                  JOIN outgoing_payments op ON op.id=pd.payment_id
+                  WHERE pd.allocation_id=a.id AND op.status='executed'), 0),
+        a.amount_minor
+        - COALESCE((SELECT SUM(f.amount_minor) FROM freezes f
+                    WHERE f.allocation_id=a.id AND f.released_at IS NULL), 0)
+        - COALESCE((SELECT SUM(pd.amount_minor) FROM payment_details pd
+                    JOIN outgoing_payments op ON op.id=pd.payment_id
+                    WHERE pd.allocation_id=a.id AND op.status IN ('reserved','executed')), 0)
+ FROM allocations a
+ JOIN promoters pr ON pr.id=a.promoter_id
+ JOIN clients cl ON cl.id=a.client_id
+ JOIN collections c ON c.id=a.collection_id
+ JOIN bank_statement_entries e ON e.id=c.bank_entry_id
+ LEFT JOIN projects pj ON pj.id=a.project_id
+ WHERE (? IS NULL OR a.promoter_id=?)
+ ORDER BY pr.name COLLATE NOCASE, a.allocation_date DESC, a.id DESC
+""", (1, 1)).fetchall()
+assert len(report_rows) == 1, report_rows
+assert report_rows[0][1:9] == ('HALA CONSTRUCTION', 'Client', None, 'إيداع', '2026-11-01', 'ST-1', '2026-11-02', 60000), report_rows
+assert report_rows[0][9:] == (0, 0, 10000, 50000), report_rows
+assert db.execute("""
+ SELECT COUNT(*) FROM allocations a
+ JOIN promoters pr ON pr.id=a.promoter_id
+ WHERE (? IS NULL OR a.promoter_id=?)
+""", (2, 2)).fetchone()[0] == 0
+
 print('All core schema, freeze, execution-ledger and financial-report tests passed.')

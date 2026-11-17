@@ -184,3 +184,89 @@ pub fn get_treasury_opening_balance(state:State<'_,AppState>)->Result<Option<Tre
   [],|r|Ok(TreasuryOpeningBalanceRow{amount_minor:r.get(0)?,balance_date:r.get(1)?,statement_reference:r.get(2)?})
  ).optional().map_err(|e|e.to_string())
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
+pub struct NewTreasuryClosingVerification{
+ statement_reference:String,closing_date:String,statement_balance_minor:i64
+}
+#[derive(Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct TreasuryClosingVerificationRow{
+ id:i64,statement_reference:String,closing_date:String,statement_balance_minor:i64,
+ computed_balance_minor:i64,difference_minor:i64,pending_credit_minor:i64,pending_debit_minor:i64,
+ pending_credit_count:i64,pending_debit_count:i64,status:String,created_at:String
+}
+
+#[tauri::command]
+pub fn create_treasury_closing_verification(
+ state:State<'_,AppState>,input:NewTreasuryClosingVerification
+)->Result<i64,String>{
+ let reference=input.statement_reference.trim();
+ if reference.is_empty()||reference.len()>120||!date_ok(&input.closing_date)||input.statement_balance_minor<0{
+  return Err("أدخل مرجع كشف الحساب وتاريخ إقفال صحيحاً ورصيداً غير سالب".into())
+ }
+ let mut db=state.db.lock().map_err(|_|lock_error())?;
+ let tx=db.connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|e|e.to_string())?;
+ let opening:Option<(String,i64)>=tx.query_row(
+  "SELECT balance_date,amount_minor FROM treasury_opening_balance WHERE id=1",[],
+  |r|Ok((r.get(0)?,r.get(1)?))
+ ).optional().map_err(|e|e.to_string())?;
+ let Some((opening_date,_opening_amount))=opening else{
+  return Err("يجب تثبيت الرصيد الافتتاحي قبل مطابقة رصيد الإقفال".into())
+ };
+ if input.closing_date<opening_date{
+  return Err("تاريخ الإقفال لا يمكن أن يسبق تاريخ الرصيد الافتتاحي".into())
+ }
+ let statement_exists:i64=tx.query_row(
+  "SELECT COUNT(*) FROM bank_statement_entries WHERE statement_reference=?1",
+  params![reference],|r|r.get(0)
+ ).map_err(|e|e.to_string())?;
+ if statement_exists==0{return Err("مرجع كشف الحساب غير موجود ضمن القيود المدخلة".into())}
+ let (computed,pending_credit,pending_debit,credit_count,debit_count):(i64,i64,i64,i64,i64)=tx.query_row(
+  "SELECT
+    COALESCE((SELECT SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END)
+      FROM treasury_ledger WHERE movement_date>=?1 AND movement_date<=?2),0),
+    COALESCE((SELECT SUM(credit_minor-COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0))
+      FROM bank_statement_entries e WHERE e.entry_date>=?1 AND e.entry_date<=?2
+       AND e.credit_minor>COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0)),0),
+    COALESCE((SELECT SUM(debit_minor-COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0))
+      FROM bank_statement_entries e WHERE e.entry_date>=?1 AND e.entry_date<=?2
+       AND e.debit_minor>COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0)),0),
+    (SELECT COUNT(*) FROM bank_statement_entries e WHERE e.entry_date>=?1 AND e.entry_date<=?2
+      AND e.credit_minor>COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0)),
+    (SELECT COUNT(*) FROM bank_statement_entries e WHERE e.entry_date>=?1 AND e.entry_date<=?2
+      AND e.debit_minor>COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0))",
+  params![opening_date,input.closing_date],
+  |r|Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?,r.get(4)?))
+ ).map_err(|e|e.to_string())?;
+ let difference=computed.checked_sub(input.statement_balance_minor)
+  .ok_or_else(||"تجاوز الحد الحسابي عند حساب فرق الإقفال".to_string())?;
+ let status=if credit_count>0||debit_count>0{"pending"}else if difference==0{"matched"}else{"mismatch"};
+ tx.execute(
+  "INSERT INTO treasury_closing_verifications(statement_reference,closing_date,statement_balance_minor,computed_balance_minor,difference_minor,pending_credit_minor,pending_debit_minor,pending_credit_count,pending_debit_count,status)
+   VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+  params![reference,input.closing_date,input.statement_balance_minor,computed,difference,pending_credit,pending_debit,credit_count,debit_count,status]
+ ).map_err(|e|e.to_string())?;
+ let id=tx.last_insert_rowid();
+ tx.execute("INSERT INTO audit_log(entity_type,entity_id,action,after_json) VALUES('treasury_closing',?1,'verified',json_object('statement_reference',?2,'closing_date',?3,'statement_balance_minor',?4,'computed_balance_minor',?5,'difference_minor',?6,'status',?7))",
+  params![id,reference,input.closing_date,input.statement_balance_minor,computed,difference,status]).map_err(|e|e.to_string())?;
+ tx.commit().map_err(|e|e.to_string())?;Ok(id)
+}
+
+#[tauri::command]
+pub fn list_treasury_closing_verifications(
+ state:State<'_,AppState>
+)->Result<Vec<TreasuryClosingVerificationRow>,String>{
+ let db=state.db.lock().map_err(|_|lock_error())?;
+ let mut s=db.connection.prepare(
+  "SELECT id,statement_reference,closing_date,statement_balance_minor,computed_balance_minor,difference_minor,pending_credit_minor,pending_debit_minor,pending_credit_count,pending_debit_count,status,created_at
+   FROM treasury_closing_verifications ORDER BY closing_date DESC,id DESC"
+ ).map_err(|e|e.to_string())?;
+ let rows=s.query_map([],|r|Ok(TreasuryClosingVerificationRow{
+  id:r.get(0)?,statement_reference:r.get(1)?,closing_date:r.get(2)?,statement_balance_minor:r.get(3)?,
+  computed_balance_minor:r.get(4)?,difference_minor:r.get(5)?,pending_credit_minor:r.get(6)?,pending_debit_minor:r.get(7)?,
+  pending_credit_count:r.get(8)?,pending_debit_count:r.get(9)?,status:r.get(10)?,created_at:r.get(11)?
+ })).map_err(|e|e.to_string())?;
+ rows.collect::<Result<Vec<_>,_>>().map_err(|e|e.to_string())
+}

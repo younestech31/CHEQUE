@@ -16,7 +16,11 @@ pub fn run() {
    commands::classification::list_promoters,commands::classification::list_clients,
    commands::classification::list_projects,commands::classification::create_client,
    commands::classification::create_project,commands::classification::list_unclassified_collections,
-   commands::classification::allocate_collection,commands::classification::list_promoter_allocations
+   commands::classification::allocate_collection,commands::classification::list_promoter_allocations,
+   commands::payments::list_eligible_allocations,commands::payments::list_freezes,
+   commands::payments::create_freeze,commands::payments::release_freeze,
+   commands::payments::create_payment,commands::payments::reserve_payment,
+   commands::payments::execute_payment,commands::payments::cancel_payment,commands::payments::list_payments
   ])
   .run(tauri::generate_context!()).expect("CHEQUE startup failed");
 }

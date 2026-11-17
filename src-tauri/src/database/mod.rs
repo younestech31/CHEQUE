@@ -63,6 +63,21 @@ impl Database {
             tx.commit()?;
         }
 
+        let v4: Option<i64> = connection.query_row(
+            "SELECT version FROM schema_migrations WHERE version=4",
+            [],
+            |row| row.get(0),
+        ).optional()?;
+
+        if v4.is_none() {
+            let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            ensure_column(&tx, "outgoing_payments", "external_reference", "TEXT")?;
+            ensure_column(&tx, "outgoing_payments", "notes", "TEXT")?;
+            tx.execute_batch(include_str!("../../migrations/0004_payments_and_freezes.sql"))?;
+            tx.execute("INSERT INTO schema_migrations(version) VALUES(4)", [])?;
+            tx.commit()?;
+        }
+
         Ok(Self { connection })
     }
 }

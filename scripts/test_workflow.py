@@ -62,4 +62,8 @@ db.execute("UPDATE outgoing_payments SET status='executed',execution_date='2026-
 assert db.execute("SELECT SUM(amount_minor) FROM treasury_ledger WHERE payment_id=1 AND direction='out'").fetchone()[0]==30000
 blocked(lambda:db.execute("UPDATE outgoing_payments SET status='cancelled' WHERE id=1"),'executed payment cannot be cancelled')
 blocked(lambda:db.execute("DELETE FROM treasury_ledger WHERE payment_id=1"),'ledger immutable')
+db.execute("INSERT INTO treasury_ledger(movement_type,movement_date,amount_minor,direction) VALUES('correction_out','2026-11-11',80000,'out')")
+db.execute("INSERT INTO outgoing_payments(payment_reference,payment_type,promoter_id,preparation_date) VALUES('PAY-02','exceptional',2,'2026-11-12')")
+db.execute("INSERT INTO payment_details(payment_id,allocation_id,amount_minor) VALUES(2,2,30000)")
+blocked(lambda:db.execute("UPDATE outgoing_payments SET status='reserved' WHERE id=2"),'reservation cannot exceed actual treasury cash')
 print('All cheque, treasury, classification, freeze and payment tests passed.')

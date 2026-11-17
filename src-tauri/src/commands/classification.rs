@@ -5,6 +5,15 @@ use tauri::State;
 
 fn lock_error()->String{"تعذر الوصول إلى قاعدة البيانات".into()}
 fn clean_required(value:&str)->bool{!value.trim().is_empty()}
+fn date_ok(s:&str)->bool {
+ let p:Vec<&str>=s.split('-').collect();
+ if p.len()!=3||p[0].len()!=4||p[1].len()!=2||p[2].len()!=2{return false}
+ let (Ok(y),Ok(m),Ok(d))=(p[0].parse::<i32>(),p[1].parse::<u32>(),p[2].parse::<u32>()) else{return false};
+ if y<1900||!(1..=12).contains(&m){return false}
+ let leap=y%4==0&&(y%100!=0||y%400==0);
+ let max=match m{2 if leap=>29,2=>28,4|6|9|11=>30,_=>31};
+ (1..=max).contains(&d)
+}
 
 #[derive(Serialize)]
 #[serde(rename_all="camelCase")]
@@ -92,7 +101,7 @@ pub fn list_unclassified_collections(state:State<'_,AppState>)->Result<Vec<Uncla
 }
 #[tauri::command]
 pub fn allocate_collection(state:State<'_,AppState>,input:NewAllocation)->Result<i64,String>{
- if input.collection_id<=0||input.promoter_id<=0||input.client_id<=0||input.amount_minor<=0||!clean_required(&input.operation_type)||input.operation_type.trim().len()>100||input.allocation_date.len()!=10{return Err("تحقق من الزبون والمرقي والتاريخ ونوع العملية والمبلغ".into())}
+ if input.collection_id<=0||input.promoter_id<=0||input.client_id<=0||input.amount_minor<=0||!clean_required(&input.operation_type)||input.operation_type.trim().len()>100||!date_ok(&input.allocation_date){return Err("تحقق من الزبون والمرقي والتاريخ ونوع العملية والمبلغ".into())}
  let mut db=state.db.lock().map_err(|_|lock_error())?;
  let tx=db.connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|e|e.to_string())?;
  tx.execute("INSERT INTO allocations(collection_id,promoter_id,client_id,project_id,allocation_date,amount_minor,operation_type) VALUES(?1,?2,?3,?4,?5,?6,?7)",params![input.collection_id,input.promoter_id,input.client_id,input.project_id,input.allocation_date,input.amount_minor,input.operation_type.trim()]).map_err(|e|e.to_string())?;

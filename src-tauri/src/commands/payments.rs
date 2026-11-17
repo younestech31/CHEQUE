@@ -115,6 +115,14 @@ pub fn create_payment(state:State<'_,AppState>,input:NewPayment)->Result<i64,Str
  tx.execute("INSERT INTO outgoing_payments(payment_reference,payment_type,promoter_id,preparation_date,status) VALUES(?1,?2,?3,?4,'prepared')",params![input.payment_reference.trim(),input.payment_type,input.promoter_id,input.preparation_date]).map_err(|e|e.to_string())?;
  let id=tx.last_insert_rowid();
  for detail in input.details{
+  let available:i64=tx.query_row(
+   "SELECT a.amount_minor
+    -COALESCE((SELECT SUM(f.amount_minor) FROM freezes f WHERE f.allocation_id=a.id AND f.released_at IS NULL),0)
+    -COALESCE((SELECT SUM(pd.amount_minor) FROM payment_details pd JOIN outgoing_payments op ON op.id=pd.payment_id WHERE pd.allocation_id=a.id AND op.status IN('reserved','executed')),0)
+    FROM allocations a WHERE a.id=?1 AND a.promoter_id=?2",
+   params![detail.allocation_id,input.promoter_id],|r|r.get(0)
+  ).map_err(|_|"سطر الاستحقاق غير موجود أو لا يتبع المرقي المحدد".to_string())?;
+  if detail.amount_minor>available{return Err("مبلغ التحويل يتجاوز المستحق المتاح بعد التجميد والحجوزات السابقة".into())}
   tx.execute("INSERT INTO payment_details(payment_id,allocation_id,amount_minor) VALUES(?1,?2,?3)",params![id,detail.allocation_id,detail.amount_minor]).map_err(|e|e.to_string())?;
  }
  tx.execute("INSERT INTO audit_log(entity_type,entity_id,action,after_json) VALUES('payment',?1,'prepared',json_object('payment_reference',?2,'promoter_id',?3,'total_minor',?4))",params![id,input.payment_reference.trim(),input.promoter_id,total]).map_err(|e|e.to_string())?;

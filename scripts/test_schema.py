@@ -4,8 +4,16 @@ import sqlite3
 root=Path(__file__).resolve().parents[1]
 db=sqlite3.connect(':memory:')
 db.execute('PRAGMA foreign_keys=ON')
-for name in ('0001_initial.sql','0002_cheques_and_statement_workflow.sql','0003_classification.sql'):
- db.executescript((root/'src-tauri/migrations'/name).read_text(encoding='utf-8'))
+db.executescript((root/'src-tauri/migrations/0001_initial.sql').read_text(encoding='utf-8'))
+for table,column,definition in [('cheques','issue_date','TEXT'),('cheques','notes','TEXT'),('bank_statement_entries','description','TEXT'),('collections','confirmation_reference','TEXT'),('collections','notes','TEXT'),('audit_log','after_json','TEXT')]:
+ columns={r[1] for r in db.execute('PRAGMA table_info(' + table + ')')}
+ if column not in columns:
+  db.execute('ALTER TABLE ' + table + ' ADD COLUMN ' + column + ' ' + definition)
+db.executescript((root/'src-tauri/migrations/0002_cheques_and_statement_workflow.sql').read_text(encoding='utf-8'))
+columns={r[1] for r in db.execute('PRAGMA table_info(allocations)')}
+if 'operation_type' not in columns:
+ db.execute("ALTER TABLE allocations ADD COLUMN operation_type TEXT NOT NULL DEFAULT 'غير محدد'")
+
 
 def blocked(fn,label):
  try: fn()

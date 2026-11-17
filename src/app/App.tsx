@@ -2,6 +2,7 @@ import {useEffect,useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
 import {LayoutDashboard,ReceiptText,Wallet,Tags,Building2,Snowflake,Send,FileBarChart} from 'lucide-react';
 import ChequeTreasury from '../modules/treasury/ChequeTreasury';
+import Classification from '../modules/classification/Classification';
 
 type Page='dashboard'|'cheques'|'treasury'|'classification'|'promoters'|'freezes'|'payments'|'reports';
 type Summary={treasuryBalanceMinor:number;unclassifiedMinor:number;classifiedEntitlementsMinor:number;activeFreezesMinor:number;reservedPaymentsMinor:number;executedPaymentsMinor:number;availableCashMinor:number};
@@ -22,6 +23,8 @@ export default function App(){
  {error&&<p className="error-msg">{error}</p>}
  {page==='dashboard'&&<><div className="notice"><b>مرحباً بك في CHEQUE</b><p>سجّل الشيك، ثم طابق التحصيل مع كشف الخزينة. لن يطلب منك تحديد المرقي إلا بعد تأكيد دخول المبلغ فعلياً.</p></div><div className="cards">{[['رصيد الخزينة الفعلي',summary?money(summary.treasuryBalanceMinor):'—'],['مبالغ محصلة غير مصنفة',summary?money(summary.unclassifiedMinor):'—'],['مستحقات مصنفة',summary?money(summary.classifiedEntitlementsMinor):'—'],['السيولة المتاحة',summary?money(summary.availableCashMinor):'—']].map(([k,v])=><article key={k}><small>{k}</small><strong>{v}</strong></article>)}</div><article className="panel"><b>سير العمل</b><p>استلام الشيك ← تسجيل الإيداع ← إدخال كشف الخزينة ← تأكيد التحصيل ← التصنيف ← التجميد أو التحويل.</p></article></>}
  {(page==='cheques'||page==='treasury')&&<ChequeTreasury initialTab={page}/>}
- {page!=='dashboard'&&page!=='cheques'&&page!=='treasury'&&<article className="panel"><b>{title}</b><p>هذه الوحدة ضمن خطة البناء ولم تُفعّل بعد.</p></article>}
+ {page==='classification'&&<Classification mode='classification'/>}
+ {page==='promoters'&&<Classification mode='promoters'/>}
+ {(page==='freezes'||page==='payments'||page==='reports')&&<article className="panel"><b>{title}</b><p>هذه الوحدة ضمن خطة البناء ولم تُفعّل بعد.</p></article>}
  </section></main></div>
 }

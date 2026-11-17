@@ -20,7 +20,8 @@ pub fn run() {
    commands::payments::list_eligible_allocations,commands::payments::list_freezes,
    commands::payments::create_freeze,commands::payments::release_freeze,
    commands::payments::create_payment,commands::payments::reserve_payment,
-   commands::payments::execute_payment,commands::payments::cancel_payment,commands::payments::list_payments
+   commands::payments::execute_payment,commands::payments::cancel_payment,commands::payments::list_payments,
+   commands::maintenance::create_backup,commands::maintenance::list_backups
   ])
   .run(tauri::generate_context!()).expect("CHEQUE startup failed");
 }

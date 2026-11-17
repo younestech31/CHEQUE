@@ -23,7 +23,8 @@ db.executescript((root/'src-tauri/migrations/0005_lock_payment_detail_moves.sql'
 db.execute("INSERT INTO schema_migrations(version) VALUES(5)")
 db.executescript((root/'src-tauri/migrations/0006_treasury_reconciliation.sql').read_text(encoding='utf-8'))
 db.execute("INSERT INTO schema_migrations(version) VALUES(6)")
-db.executescript((root/'src-tauri/migrations/0007_bank_match_date_guard.sql').read_text(encoding='utf-8'))\ndb.executescript((root/'src-tauri/migrations/0008_treasury_closing_verification.sql').read_text(encoding='utf-8'))
+db.executescript((root/'src-tauri/migrations/0007_bank_match_date_guard.sql').read_text(encoding='utf-8'))
+db.executescript((root/'src-tauri/migrations/0008_treasury_closing_verification.sql').read_text(encoding='utf-8'))
 db.execute("INSERT INTO schema_migrations(version) VALUES(7)")
 def blocked(fn,label):
  try: fn()

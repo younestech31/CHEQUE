@@ -70,14 +70,14 @@ pub fn verify_backup(app:AppHandle,file_name:String)->Result<BackupVerification,
  if canonical_file.parent()!=Some(canonical_dir.as_path()) || !canonical_file.is_file() { return Err("مسار النسخة الاحتياطية خارج مجلد النسخ المعتمد".into()); }
  let connection=Connection::open_with_flags(&canonical_file,OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(|e|format!("تعذر فتح النسخة للقراءة فقط: {e}"))?;
  let required_tables:i64=connection.query_row(
-  "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('schema_migrations','cheques','bank_statement_entries','collections','allocations','outgoing_payments','payment_details','treasury_ledger','treasury_opening_balance','bank_debit_reconciliations')",
+  "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('schema_migrations','cheques','bank_statement_entries','collections','allocations','outgoing_payments','payment_details','treasury_ledger','treasury_opening_balance','bank_debit_reconciliations','treasury_closing_verifications')",
   [],|r|r.get(0)
  ).map_err(|e|e.to_string())?;
- if required_tables!=10 { return Err("الملف ليس نسخة مكتملة من قاعدة بيانات CHEQUE".into()); }
+ if required_tables!=11 { return Err("الملف ليس نسخة مكتملة من قاعدة بيانات CHEQUE".into()); }
  let migration_count:i64=connection.query_row(
-  "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4,5,6,7)",[],|r|r.get(0)
+  "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4,5,6,7,8)",[],|r|r.get(0)
  ).map_err(|e|format!("سجل ترحيلات قاعدة البيانات غير صالح: {e}"))?;
- if migration_count!=6 { return Err("نسخة قاعدة البيانات لا تحتوي على جميع التحديثات المطلوبة".into()); }
+ if migration_count!=7 { return Err("نسخة قاعدة البيانات لا تحتوي على جميع التحديثات المطلوبة".into()); }
  let integrity:String=connection.query_row("PRAGMA integrity_check",[],|r|r.get(0)).map_err(|e|e.to_string())?;
  if integrity!="ok" { return Err(format!("فشل فحص سلامة SQLite: {integrity}")); }
  let mut stmt=connection.prepare("PRAGMA foreign_key_check").map_err(|e|e.to_string())?;

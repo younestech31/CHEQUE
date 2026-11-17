@@ -1,5 +1,5 @@
 use crate::AppState;
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, OptionalExtension, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -48,7 +48,7 @@ pub fn create_cheque(state:State<'_,AppState>,input:NewCheque)->Result<i64,Strin
  if input.cheque_number.trim().is_empty()||input.amount_minor<=0||!date_ok(&input.received_date){return Err("رقم الشيك والمبلغ الموجب وتاريخ الاستلام الصحيح حقول إلزامية".into())}
  if input.issue_date.as_deref().is_some_and(|d|!date_ok(d)){return Err("تاريخ إصدار الشيك غير صحيح".into())}
  let mut db=state.db.lock().map_err(|_|lock_error())?;
- let tx=db.connection.transaction().map_err(|e|e.to_string())?;
+ let tx=db.connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|e|e.to_string())?;
  tx.execute("INSERT INTO cheques(cheque_number,bank_name,drawer_name,issue_date,received_date,amount_minor,notes) VALUES(?1,?2,?3,?4,?5,?6,?7)",params![input.cheque_number.trim(),input.bank_name,input.drawer_name,input.issue_date,input.received_date,input.amount_minor,input.notes]).map_err(|e|e.to_string())?;
  let id=tx.last_insert_rowid();
  tx.execute("INSERT INTO audit_log(entity_type,entity_id,action,after_json) VALUES('cheque',?1,'received',json_object('cheque_number',?2,'amount_minor',?3))",params![id,input.cheque_number,input.amount_minor]).map_err(|e|e.to_string())?;
@@ -67,7 +67,7 @@ pub fn list_cheques(state:State<'_,AppState>)->Result<Vec<ChequeRow>,String>{
 pub fn record_cheque_deposit(state:State<'_,AppState>,cheque_id:i64,deposit_date:String,amount_minor:i64,deposit_reference:Option<String>,bank_name:Option<String>,notes:Option<String>)->Result<i64,String>{
  if amount_minor<=0||!date_ok(&deposit_date){return Err("أدخل تاريخ إيداع صحيحاً ومبلغاً موجباً".into())}
  let mut db=state.db.lock().map_err(|_|lock_error())?;
- let tx=db.connection.transaction().map_err(|e|e.to_string())?;
+ let tx=db.connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|e|e.to_string())?;
  tx.execute("INSERT INTO cheque_deposits(cheque_id,deposit_date,deposit_reference,bank_name,amount_minor,notes) VALUES(?1,?2,?3,?4,?5,?6)",params![cheque_id,deposit_date,deposit_reference,bank_name,amount_minor,notes]).map_err(|e|e.to_string())?;
  let id=tx.last_insert_rowid();
  tx.execute("UPDATE cheques SET status='deposited' WHERE id=?1 AND status='received'",params![cheque_id]).map_err(|e|e.to_string())?;
@@ -79,7 +79,7 @@ pub fn record_cheque_deposit(state:State<'_,AppState>,cheque_id:i64,deposit_date
 pub fn create_statement_entry(state:State<'_,AppState>,input:NewStatementEntry)->Result<i64,String>{
  if input.statement_reference.trim().is_empty()||!date_ok(&input.statement_date)||!date_ok(&input.entry_date)||input.credit_minor<0||input.debit_minor<0||((input.credit_minor==0)==(input.debit_minor==0)){return Err("يجب إدخال مرجع الكشف وتاريخين ومبلغ دائن أو مدين واحد فقط".into())}
  let mut db=state.db.lock().map_err(|_|lock_error())?;
- let tx=db.connection.transaction().map_err(|e|e.to_string())?;
+ let tx=db.connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|e|e.to_string())?;
  tx.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,bank_transaction_reference,description,credit_minor,debit_minor) VALUES(?1,?2,?3,?4,?5,?6,?7)",params![input.statement_reference.trim(),input.statement_date,input.entry_date,input.bank_transaction_reference,input.description,input.credit_minor,input.debit_minor]).map_err(|e|e.to_string())?;
  let id=tx.last_insert_rowid();
  tx.execute("INSERT INTO audit_log(entity_type,entity_id,action,after_json) VALUES('bank_statement_entry',?1,'imported',json_object('statement_reference',?2,'credit_minor',?3,'debit_minor',?4))",params![id,input.statement_reference,input.credit_minor,input.debit_minor]).map_err(|e|e.to_string())?;
@@ -102,7 +102,7 @@ pub fn confirm_collection(state:State<'_,AppState>,input:ConfirmCollectionInput)
  let matched=input.cheque_matches.iter().try_fold(0_i64,|sum,m|sum.checked_add(m.matched_minor)).ok_or_else(||"تجاوز الحد الحسابي للمبلغ".to_string())?;
  if matched>input.amount_minor{return Err("مجموع مطابقة الشيكات أكبر من مبلغ التحصيل".into())}
  let mut db=state.db.lock().map_err(|_|lock_error())?;
- let tx=db.connection.transaction().map_err(|e|e.to_string())?;
+ let tx=db.connection.transaction_with_behavior(TransactionBehavior::Immediate).map_err(|e|e.to_string())?;
  let credit:Option<i64>=tx.query_row("SELECT credit_minor FROM bank_statement_entries WHERE id=?1",params![input.bank_entry_id],|r|r.get(0)).optional().map_err(|e|e.to_string())?;
  if credit.unwrap_or(0)<=0{return Err("لا يمكن تأكيد التحصيل إلا من قيد دائن موجود".into())}
  tx.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor,confirmation_reference,notes) VALUES(?1,?2,?3,?4,?5)",params![input.bank_entry_id,input.collection_date,input.amount_minor,input.confirmation_reference,input.notes]).map_err(|e|e.to_string())?;

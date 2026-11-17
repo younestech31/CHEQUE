@@ -12,6 +12,7 @@ const money=(n:number)=>new Intl.NumberFormat('ar-DZ',{minimumFractionDigits:2,m
 const dateLabel=(unix:number)=>new Intl.DateTimeFormat('ar-DZ',{dateStyle:'medium',timeStyle:'short'}).format(new Date(unix*1000));
 const sizeLabel=(bytes:number)=>bytes<1024*1024?(bytes/1024).toFixed(1)+' KB':(bytes/(1024*1024)).toFixed(2)+' MB';
 const csvCell=(value:string|number)=>'"'+String(value??'').replace(/"/g,'""')+'"';
+const minorAsDzd=(minor:number)=>{const abs=Math.abs(minor);return (minor<0?'-':'')+Math.floor(abs/100)+'.'+String(abs%100).padStart(2,'0')};
 export default function Reports(){
  const [backups,setBackups]=useState<Backup[]>([]),[promoters,setPromoters]=useState<Promoter[]>([]);
  const [rows,setRows]=useState<ReportRow[]>([]),[promoterId,setPromoterId]=useState('all');
@@ -23,8 +24,8 @@ export default function Reports(){
  const filter=async(value:string)=>{setPromoterId(value);setError('');try{await refreshReport(value)}catch(e){setError(String(e))}};
  const create=async()=>{setBusy(true);setError('');setSuccess('');try{const b=await invoke<Backup>('create_backup');setSuccess('تم إنشاء نسخة احتياطية وفحص سلامتها بنجاح: '+b.fileName);await refreshBackups()}catch(e){setError(String(e))}finally{setBusy(false)}};
  const exportCsv=()=>{
-  const headers=['رقم التخصيص','المرقي','الزبون','المشروع','نوع العملية','تاريخ التحصيل','مرجع كشف الخزينة','تاريخ التخصيص','المستحق (سنتيم)','المجمد (سنتيم)','المحجوز (سنتيم)','المنفذ (سنتيم)','المتاح (سنتيم)'];
-  const body=rows.map(r=>[r.allocationId,r.promoterName,r.clientName,r.projectName||'',r.operationType,r.collectionDate,r.statementReference,r.allocationDate,r.allocatedMinor,r.frozenMinor,r.reservedMinor,r.executedMinor,r.availableMinor]);
+  const headers=['رقم التخصيص','المرقي','الزبون','المشروع','نوع العملية','تاريخ التحصيل','مرجع كشف الخزينة','تاريخ التخصيص','المستحق (دج)','المجمد (دج)','المحجوز (دج)','المنفذ (دج)','المتاح (دج)'];
+  const body=rows.map(r=>[r.allocationId,r.promoterName,r.clientName,r.projectName||'',r.operationType,r.collectionDate,r.statementReference,r.allocationDate,minorAsDzd(r.allocatedMinor),minorAsDzd(r.frozenMinor),minorAsDzd(r.reservedMinor),minorAsDzd(r.executedMinor),minorAsDzd(r.availableMinor)]);
   const content='\uFEFF'+[headers,...body].map(line=>line.map(csvCell).join(';')).join('\r\n');
   const url=URL.createObjectURL(new Blob([content],{type:'text/csv;charset=utf-8;'}));
   const link=document.createElement('a');link.href=url;link.download='CHEQUE-financial-report-'+new Date().toISOString().slice(0,10)+'.csv';

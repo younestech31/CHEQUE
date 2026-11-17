@@ -14,6 +14,7 @@ columns={r[1] for r in db.execute('PRAGMA table_info(allocations)')}
 if 'operation_type' not in columns:
  db.execute("ALTER TABLE allocations ADD COLUMN operation_type TEXT NOT NULL DEFAULT 'غير محدد'")
 
+db.executescript((root/'src-tauri/migrations/0003_classification.sql').read_text(encoding='utf-8'))
 
 def blocked(fn,label):
  try: fn()

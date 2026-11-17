@@ -4,6 +4,7 @@ import {LayoutDashboard,ReceiptText,Wallet,Tags,Building2,Snowflake,Send,FileBar
 import ChequeTreasury from '../modules/treasury/ChequeTreasury';
 import Classification from '../modules/classification/Classification';
 import PaymentManager from '../modules/payments/PaymentManager';
+import Reports from '../modules/reports/Reports';
 
 type Page='dashboard'|'cheques'|'treasury'|'classification'|'promoters'|'freezes'|'payments'|'reports';
 type Summary={treasuryBalanceMinor:number;unclassifiedMinor:number;classifiedEntitlementsMinor:number;activeFreezesMinor:number;reservedPaymentsMinor:number;executedPaymentsMinor:number;availableCashMinor:number};
@@ -28,6 +29,6 @@ export default function App(){
  {page==='promoters'&&<Classification mode='promoters'/>}
  {page==='payments'&&<PaymentManager mode='payments'/>}
  {page==='freezes'&&<PaymentManager mode='freezes'/>}
- {page==='reports'&&<article className="panel"><b>{title}</b><p>هذه الوحدة ضمن خطة البناء ولم تُفعّل بعد.</p></article>}
+ {page==='reports'&&<Reports/>}
  </section></main></div>
 }

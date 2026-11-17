@@ -6,7 +6,7 @@ type Promoter={id:number;name:string;active:boolean};
 type Client={id:number;fullName:string;phone:string|null};
 type Project={id:number;promoterId:number;name:string};
 type Pending={id:number;collectionDate:string;statementReference:string;bankTransactionReference:string|null;amountMinor:number;allocatedMinor:number;remainingMinor:number;confirmationReference:string|null};
-type Allocation={id:number;collectionId:number;collectionDate:string;clientName:string;projectName:string|null;operationType:string;amountMinor:number;allocationDate:string};
+type Allocation={id:number;collectionId:number;collectionDate:string;statementReference:string;clientName:string;projectName:string|null;operationType:string;amountMinor:number;allocationDate:string};
 const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
 const money=(n:number)=>new Intl.NumberFormat('ar-DZ',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n/100)+' دج';
 const toMinor=(v:string):number|null=>{const s=v.trim().replace(/\s/g,'').replace(',','.');if(!/^\d+(\.\d{1,2})?$/.test(s))return null;const [a,b='']=s.split('.');const n=Number(a)*100+Number((b+'00').slice(0,2));return Number.isSafeInteger(n)&&n>0?n:null};
@@ -57,7 +57,7 @@ export default function Classification({mode='classification'}:{mode?:'classific
  </>:<>
  <p className="hint">كل سطر يعرض المبلغ المحصل والمصنف لهذا المرقي مع اسم الزبون والمشروع ونوع العملية.</p>
  <div className="entry-form"><label>اختر المرقي<select value={selectedPromoter} onChange={e=>setSelectedPromoter(e.target.value)}><option value="">اختر المرقي</option>{promoters.map(p=><option key={p.id} value={p.id}>{p.name}{p.active?'':' (غير نشط)'}</option>)}</select></label><label>إجمالي السطور المعروضة<input readOnly value={money(totalAllocated)}/></label></div>
- <div className="table-wrap"><table><thead><tr><th>تاريخ التصنيف</th><th>الزبون</th><th>المشروع</th><th>نوع العملية</th><th>مرجع التحصيل</th><th>المبلغ</th></tr></thead><tbody>{allocations.map(a=><tr key={a.id}><td>{a.allocationDate}</td><td>{a.clientName}</td><td>{a.projectName||'—'}</td><td>{a.operationType}</td><td>{a.collectionId} / {a.collectionDate}</td><td>{money(a.amountMinor)}</td></tr>)}</tbody></table>{selectedPromoter&&!allocations.length&&<p className="empty">لا توجد مبالغ مصنفة لهذا المرقي بعد</p>}</div>
+ <div className="table-wrap"><table><thead><tr><th>تاريخ التصنيف</th><th>الزبون</th><th>المشروع</th><th>نوع العملية</th><th>مرجع كشف الخزينة</th><th>رقم التحصيل</th><th>المبلغ</th></tr></thead><tbody>{allocations.map(a=><tr key={a.id}><td>{a.allocationDate}</td><td>{a.clientName}</td><td>{a.projectName||'—'}</td><td>{a.operationType}</td><td>{a.statementReference}</td><td>{a.collectionId} / {a.collectionDate}</td><td>{money(a.amountMinor)}</td></tr>)}</tbody></table>{selectedPromoter&&!allocations.length&&<p className="empty">لا توجد مبالغ مصنفة لهذا المرقي بعد</p>}</div>
  </>}
  </div>
 }

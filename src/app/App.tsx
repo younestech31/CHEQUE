@@ -3,6 +3,7 @@ import {invoke} from '@tauri-apps/api/core';
 import {LayoutDashboard,ReceiptText,Wallet,Tags,Building2,Snowflake,Send,FileBarChart} from 'lucide-react';
 import ChequeTreasury from '../modules/treasury/ChequeTreasury';
 import Classification from '../modules/classification/Classification';
+import PaymentManager from '../modules/payments/PaymentManager';
 
 type Page='dashboard'|'cheques'|'treasury'|'classification'|'promoters'|'freezes'|'payments'|'reports';
 type Summary={treasuryBalanceMinor:number;unclassifiedMinor:number;classifiedEntitlementsMinor:number;activeFreezesMinor:number;reservedPaymentsMinor:number;executedPaymentsMinor:number;availableCashMinor:number};
@@ -25,6 +26,8 @@ export default function App(){
  {(page==='cheques'||page==='treasury')&&<ChequeTreasury initialTab={page}/>}
  {page==='classification'&&<Classification mode='classification'/>}
  {page==='promoters'&&<Classification mode='promoters'/>}
- {(page==='freezes'||page==='payments'||page==='reports')&&<article className="panel"><b>{title}</b><p>هذه الوحدة ضمن خطة البناء ولم تُفعّل بعد.</p></article>}
+ {page==='payments'&&<PaymentManager mode='payments'/>}
+ {page==='freezes'&&<PaymentManager mode='freezes'/>}
+ {page==='reports'&&<article className="panel"><b>{title}</b><p>هذه الوحدة ضمن خطة البناء ولم تُفعّل بعد.</p></article>}
  </section></main></div>
 }

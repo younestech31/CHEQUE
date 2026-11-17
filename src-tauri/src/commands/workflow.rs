@@ -25,7 +25,7 @@ pub struct ChequeRow{id:i64,cheque_number:String,bank_name:Option<String>,drawer
 pub struct NewStatementEntry{statement_reference:String,statement_date:String,entry_date:String,bank_transaction_reference:Option<String>,description:Option<String>,credit_minor:i64,debit_minor:i64}
 #[derive(Serialize)]
 #[serde(rename_all="camelCase")]
-pub struct StatementEntryRow{id:i64,statement_reference:String,statement_date:String,entry_date:String,bank_transaction_reference:Option<String>,description:Option<String>,credit_minor:i64,debit_minor:i64,confirmed_minor:i64,remaining_credit_minor:i64}
+pub struct StatementEntryRow{id:i64,statement_reference:String,statement_date:String,entry_date:String,bank_transaction_reference:Option<String>,description:Option<String>,credit_minor:i64,debit_minor:i64,confirmed_minor:i64,remaining_credit_minor:i64,reconciled_debit_minor:i64,remaining_debit_minor:i64}
 #[derive(Deserialize)]
 #[serde(rename_all="camelCase")]
 pub struct ChequeMatch{cheque_id:i64,matched_minor:i64}
@@ -89,8 +89,8 @@ pub fn create_statement_entry(state:State<'_,AppState>,input:NewStatementEntry)-
 #[tauri::command]
 pub fn list_statement_entries(state:State<'_,AppState>)->Result<Vec<StatementEntryRow>,String>{
  let db=state.db.lock().map_err(|_|lock_error())?;
- let mut s=db.connection.prepare("SELECT e.id,e.statement_reference,e.statement_date,e.entry_date,e.bank_transaction_reference,e.description,e.credit_minor,e.debit_minor,COALESCE((SELECT SUM(amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0),e.credit_minor-COALESCE((SELECT SUM(amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0) FROM bank_statement_entries e ORDER BY e.entry_date DESC,e.id DESC").map_err(|e|e.to_string())?;
- let rows=s.query_map([],|r|Ok(StatementEntryRow{id:r.get(0)?,statement_reference:r.get(1)?,statement_date:r.get(2)?,entry_date:r.get(3)?,bank_transaction_reference:r.get(4)?,description:r.get(5)?,credit_minor:r.get(6)?,debit_minor:r.get(7)?,confirmed_minor:r.get(8)?,remaining_credit_minor:r.get(9)?})).map_err(|e|e.to_string())?;
+ let mut s=db.connection.prepare("SELECT e.id,e.statement_reference,e.statement_date,e.entry_date,e.bank_transaction_reference,e.description,e.credit_minor,e.debit_minor,COALESCE((SELECT SUM(amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0),e.credit_minor-COALESCE((SELECT SUM(amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0),COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0),e.debit_minor-COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0) FROM bank_statement_entries e ORDER BY e.entry_date DESC,e.id DESC").map_err(|e|e.to_string())?;
+ let rows=s.query_map([],|r|Ok(StatementEntryRow{id:r.get(0)?,statement_reference:r.get(1)?,statement_date:r.get(2)?,entry_date:r.get(3)?,bank_transaction_reference:r.get(4)?,description:r.get(5)?,credit_minor:r.get(6)?,debit_minor:r.get(7)?,confirmed_minor:r.get(8)?,remaining_credit_minor:r.get(9)?,reconciled_debit_minor:r.get(10)?,remaining_debit_minor:r.get(11)?})).map_err(|e|e.to_string())?;
  rows.collect::<Result<Vec<_>,_>>().map_err(|e|e.to_string())
 }
 

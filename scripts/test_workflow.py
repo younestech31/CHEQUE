@@ -19,6 +19,8 @@ for column in ('external_reference','notes'):
   db.execute('ALTER TABLE outgoing_payments ADD COLUMN ' + column + ' TEXT')
 db.executescript((root/'src-tauri/migrations/0004_payments_and_freezes.sql').read_text(encoding='utf-8'))
 db.execute("INSERT INTO schema_migrations(version) VALUES(4)")
+db.executescript((root/'src-tauri/migrations/0005_lock_payment_detail_moves.sql').read_text(encoding='utf-8'))
+db.execute("INSERT INTO schema_migrations(version) VALUES(5)")
 def blocked(fn,label):
  try: fn()
  except sqlite3.IntegrityError: print('PASS',label); return
@@ -57,6 +59,9 @@ db.execute("INSERT INTO outgoing_payments(payment_reference,payment_type,promote
 db.execute("INSERT INTO payment_details(payment_id,allocation_id,amount_minor) VALUES(1,1,30000)")
 db.execute("UPDATE outgoing_payments SET status='reserved' WHERE id=1")
 blocked(lambda:db.execute("INSERT INTO payment_details(payment_id,allocation_id,amount_minor) VALUES(1,1,1)"),'reserved payment details locked')
+db.execute("INSERT INTO outgoing_payments(payment_reference,payment_type,promoter_id,preparation_date) VALUES('PAY-MOVE','periodic',1,'2026-11-08')")
+db.execute("INSERT INTO payment_details(payment_id,allocation_id,amount_minor) VALUES(2,1,5000)")
+blocked(lambda:db.execute("UPDATE payment_details SET payment_id=1 WHERE payment_id=2"),'cannot move details into a reserved payment')
 blocked(lambda:db.execute("INSERT INTO freezes(allocation_id,amount_minor,reason,frozen_at) VALUES(1,20001,'تجميد زائد','2026-11-09')"),'freeze cannot overlap reserved amount')
 db.execute("UPDATE outgoing_payments SET status='executed',execution_date='2026-11-10' WHERE id=1")
 assert db.execute("SELECT SUM(amount_minor) FROM treasury_ledger WHERE payment_id=1 AND direction='out'").fetchone()[0]==30000
@@ -64,8 +69,8 @@ blocked(lambda:db.execute("UPDATE outgoing_payments SET status='cancelled' WHERE
 blocked(lambda:db.execute("DELETE FROM treasury_ledger WHERE payment_id=1"),'ledger immutable')
 db.execute("INSERT INTO treasury_ledger(movement_type,movement_date,amount_minor,direction) VALUES('correction_out','2026-11-11',80000,'out')")
 db.execute("INSERT INTO outgoing_payments(payment_reference,payment_type,promoter_id,preparation_date) VALUES('PAY-02','exceptional',2,'2026-11-12')")
-db.execute("INSERT INTO payment_details(payment_id,allocation_id,amount_minor) VALUES(2,2,30000)")
-blocked(lambda:db.execute("UPDATE outgoing_payments SET status='reserved' WHERE id=2"),'reservation cannot exceed actual treasury cash')
+db.execute("INSERT INTO payment_details(payment_id,allocation_id,amount_minor) VALUES(3,2,30000)")
+blocked(lambda:db.execute("UPDATE outgoing_payments SET status='reserved' WHERE id=3"),'reservation cannot exceed actual treasury cash')
 # Backup verification prerequisites: required application schema and migrations must exist.
 required_tables = db.execute("""
  SELECT COUNT(*) FROM sqlite_master
@@ -76,8 +81,8 @@ required_tables = db.execute("""
 """).fetchone()[0]
 assert required_tables == 8, required_tables
 assert db.execute(
- "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4)"
-).fetchone()[0] == 3
+ "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4,5)"
+).fetchone()[0] == 4
 assert db.execute("PRAGMA integrity_check").fetchone()[0] == 'ok'
 assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 

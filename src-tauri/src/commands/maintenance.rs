@@ -53,3 +53,27 @@ pub fn list_backups(app:AppHandle)->Result<Vec<BackupRow>,String>{
  items.sort_by(|a,b|b.created_unix.cmp(&a.created_unix));
  Ok(items)
 }
+
+#[derive(Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct BackupVerification { file_name:String, integrity:String, foreign_key_violations:usize }
+
+#[tauri::command]
+pub fn verify_backup(app:AppHandle,file_name:String)->Result<BackupVerification,String>{
+ use rusqlite::OpenFlags;
+ use std::path::Path;
+ if file_name.is_empty() || file_name!=Path::new(&file_name).file_name().and_then(|x|x.to_str()).unwrap_or("") || !file_name.starts_with("cheque-backup-") || !file_name.ends_with(".sqlite3") { return Err("اسم ملف النسخة الاحتياطية غير صالح".into()); }
+ let dir=backup_dir(&app)?;
+ let canonical_dir=dir.canonicalize().map_err(|e|e.to_string())?;
+ let canonical_file=dir.join(&file_name).canonicalize().map_err(|e|format!("تعذر العثور على النسخة: {e}"))?;
+ if canonical_file.parent()!=Some(canonical_dir.as_path()) || !canonical_file.is_file() { return Err("مسار النسخة الاحتياطية خارج مجلد النسخ المعتمد".into()); }
+ let connection=Connection::open_with_flags(&canonical_file,OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(|e|format!("تعذر فتح النسخة للقراءة فقط: {e}"))?;
+ let integrity:String=connection.query_row("PRAGMA integrity_check",[],|r|r.get(0)).map_err(|e|e.to_string())?;
+ if integrity!="ok" { return Err(format!("فشل فحص سلامة SQLite: {integrity}")); }
+ let mut stmt=connection.prepare("PRAGMA foreign_key_check").map_err(|e|e.to_string())?;
+ let mut rows=stmt.query([]).map_err(|e|e.to_string())?;
+ let mut violations=0usize;
+ while rows.next().map_err(|e|e.to_string())?.is_some() { violations+=1; }
+ if violations>0 { return Err(format!("النسخة تحتوي على {violations} مخالفة للمفاتيح الخارجية")); }
+ Ok(BackupVerification{file_name,integrity,foreign_key_violations:violations})
+}

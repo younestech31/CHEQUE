@@ -1,5 +1,6 @@
 pub mod workflow;
 pub mod classification;
+pub mod payments;
 use crate::AppState;
 use rusqlite::params;
 use serde::Serialize;

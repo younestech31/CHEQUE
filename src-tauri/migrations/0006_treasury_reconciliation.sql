@@ -18,6 +18,23 @@ BEGIN
  VALUES('opening_balance',NEW.balance_date,NEW.amount_minor,'in');
 END;
 
+-- Once a statement opening balance is entered, historical ledger movements before
+-- that date are outside the new reconciliation baseline and must not be counted twice.
+DROP TRIGGER IF EXISTS trg_reservation_within_treasury_cash;
+CREATE TRIGGER trg_reservation_within_treasury_cash
+BEFORE UPDATE OF status ON outgoing_payments
+WHEN NEW.status='reserved' AND OLD.status='prepared'
+BEGIN
+ SELECT CASE WHEN
+  (SELECT COALESCE(SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END),0)
+   FROM treasury_ledger
+   WHERE movement_date >= COALESCE((SELECT balance_date FROM treasury_opening_balance WHERE id=1),'0000-01-01'))
+  < (SELECT COALESCE(SUM(pd.amount_minor),0) FROM payment_details pd JOIN outgoing_payments p ON p.id=pd.payment_id
+     WHERE p.status='reserved' AND p.id<>NEW.id)
+    +(SELECT COALESCE(SUM(amount_minor),0) FROM payment_details WHERE payment_id=NEW.id)
+ THEN RAISE(ABORT,'reserved payments exceed available reconciled treasury cash') END;
+END;
+
 CREATE TABLE bank_debit_reconciliations(
  id INTEGER PRIMARY KEY,
  bank_entry_id INTEGER NOT NULL REFERENCES bank_statement_entries(id),

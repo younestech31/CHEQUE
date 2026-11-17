@@ -172,3 +172,16 @@ pub fn reconcile_bank_debit_as_external(
   params![id,bank_entry_id,amount_minor]).map_err(|e|e.to_string())?;
  tx.commit().map_err(|e|e.to_string())?;Ok(id)
 }
+
+#[derive(Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct TreasuryOpeningBalanceRow{amount_minor:i64,balance_date:String,statement_reference:String}
+
+#[tauri::command]
+pub fn get_treasury_opening_balance(state:State<'_,AppState>)->Result<Option<TreasuryOpeningBalanceRow>,String>{
+ let db=state.db.lock().map_err(|_|lock_error())?;
+ db.connection.query_row(
+  "SELECT amount_minor,balance_date,statement_reference FROM treasury_opening_balance WHERE id=1",
+  [],|r|Ok(TreasuryOpeningBalanceRow{amount_minor:r.get(0)?,balance_date:r.get(1)?,statement_reference:r.get(2)?})
+ ).optional().map_err(|e|e.to_string())
+}

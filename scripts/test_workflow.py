@@ -43,7 +43,7 @@ db.execute("INSERT INTO collection_cheques(collection_id,cheque_id,matched_minor
 blocked(lambda:db.execute("INSERT INTO collection_cheques(collection_id,cheque_id,matched_minor) VALUES(2,1,1)"),'cheque matching exceeds deposit')
 blocked(lambda:db.execute("INSERT INTO collection_cheques(collection_id,cheque_id,matched_minor) VALUES(2,2,31000)"),'cheque matching exceeds collection')
 db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,debit_minor) VALUES('ST-11','2026-11-30','2026-11-05',10000)")
-blocked(lambda:db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(3,'2026-11-05',10000)"),'debit entry cannot be collected')
+blocked(lambda:db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(2,'2026-11-05',10000)"),'debit entry cannot be collected')
 db.execute("INSERT INTO clients(full_name) VALUES('Client One'),('Client Two')")
 db.execute("INSERT INTO projects(promoter_id,name) VALUES(1,'Project A')")
 db.execute("INSERT INTO allocations(collection_id,promoter_id,client_id,project_id,allocation_date,amount_minor,operation_type) VALUES(1,1,1,1,'2026-11-06',40000,'إيداع')")

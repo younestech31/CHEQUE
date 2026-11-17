@@ -17,7 +17,7 @@ for column in ('external_reference','notes'):
 db.executescript((root/'src-tauri/migrations/0004_payments_and_freezes.sql').read_text(encoding='utf-8'))
 db.executescript((root/'src-tauri/migrations/0005_lock_payment_detail_moves.sql').read_text(encoding='utf-8'))
 db.executescript((root/'src-tauri/migrations/0006_treasury_reconciliation.sql').read_text(encoding='utf-8'))
-db.executescript((root/'src-tauri/migrations/0007_bank_match_date_guard.sql').read_text(encoding='utf-8'))
+db.executescript((root/'src-tauri/migrations/0007_bank_match_date_guard.sql').read_text(encoding='utf-8'))\ndb.executescript((root/'src-tauri/migrations/0008_treasury_closing_verification.sql').read_text(encoding='utf-8'))
 def blocked(fn,label):
  try: fn()
  except sqlite3.IntegrityError: print('PASS',label); return

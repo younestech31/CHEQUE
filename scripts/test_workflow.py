@@ -62,6 +62,8 @@ blocked(lambda:db.execute("INSERT INTO payment_details(payment_id,allocation_id,
 db.execute("INSERT INTO outgoing_payments(payment_reference,payment_type,promoter_id,preparation_date) VALUES('PAY-MOVE','periodic',1,'2026-11-08')")
 db.execute("INSERT INTO payment_details(payment_id,allocation_id,amount_minor) VALUES(2,1,5000)")
 blocked(lambda:db.execute("UPDATE payment_details SET payment_id=1 WHERE payment_id=2"),'cannot move details into a reserved payment')
+db.execute("UPDATE payment_details SET amount_minor=6000 WHERE payment_id=2")
+assert db.execute("SELECT amount_minor FROM payment_details WHERE payment_id=2").fetchone()[0] == 6000
 blocked(lambda:db.execute("INSERT INTO freezes(allocation_id,amount_minor,reason,frozen_at) VALUES(1,20001,'تجميد زائد','2026-11-09')"),'freeze cannot overlap reserved amount')
 db.execute("UPDATE outgoing_payments SET status='executed',execution_date='2026-11-10' WHERE id=1")
 assert db.execute("SELECT SUM(amount_minor) FROM treasury_ledger WHERE payment_id=1 AND direction='out'").fetchone()[0]==30000

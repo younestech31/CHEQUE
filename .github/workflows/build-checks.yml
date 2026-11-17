@@ -13,7 +13,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run SQLite workflow and report tests
         run: |
-          python -m unittest discover -s scripts -p 'test_*.py'
+          python scripts/test_schema.py
+          python scripts/test_workflow.py
 
   frontend:
     runs-on: ubuntu-latest

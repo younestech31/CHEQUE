@@ -44,7 +44,8 @@ pub fn list_backups(app:AppHandle)->Result<Vec<BackupRow>,String>{
  for entry in fs::read_dir(dir).map_err(|e|e.to_string())?{
   let entry=entry.map_err(|e|e.to_string())?;
   let path=entry.path();
-  if path.extension().and_then(|x|x.to_str())!=Some("sqlite3"){continue}
+  let file_name=path.file_name().and_then(|x|x.to_str()).unwrap_or("");
+  if path.extension().and_then(|x|x.to_str())!=Some("sqlite3") || !file_name.starts_with("cheque-backup-"){continue}
   let metadata=entry.metadata().map_err(|e|e.to_string())?;
   if !metadata.is_file(){continue}
   let created_unix=metadata.modified().ok().and_then(|t|t.duration_since(UNIX_EPOCH).ok()).map(|d|d.as_secs().min(i64::MAX as u64) as i64).unwrap_or(0);

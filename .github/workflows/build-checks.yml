@@ -7,6 +7,14 @@ on:
     branches: [main]
 
 jobs:
+  database-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run SQLite workflow and report tests
+        run: |
+          python -m unittest discover -s scripts -p 'test_*.py'
+
   frontend:
     runs-on: ubuntu-latest
     steps:

@@ -75,9 +75,9 @@ pub fn verify_backup(app:AppHandle,file_name:String)->Result<BackupVerification,
  ).map_err(|e|e.to_string())?;
  if required_tables!=8 { return Err("الملف ليس نسخة مكتملة من قاعدة بيانات CHEQUE".into()); }
  let migration_count:i64=connection.query_row(
-  "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4,5)",[],|r|r.get(0)
+  "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4,5,6)",[],|r|r.get(0)
  ).map_err(|e|format!("سجل ترحيلات قاعدة البيانات غير صالح: {e}"))?;
- if migration_count!=4 { return Err("نسخة قاعدة البيانات لا تحتوي على جميع التحديثات المطلوبة".into()); }
+ if migration_count!=5 { return Err("نسخة قاعدة البيانات لا تحتوي على جميع التحديثات المطلوبة".into()); }
  let integrity:String=connection.query_row("PRAGMA integrity_check",[],|r|r.get(0)).map_err(|e|e.to_string())?;
  if integrity!="ok" { return Err(format!("فشل فحص سلامة SQLite: {integrity}")); }
  let mut stmt=connection.prepare("PRAGMA foreign_key_check").map_err(|e|e.to_string())?;

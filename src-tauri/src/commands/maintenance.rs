@@ -69,6 +69,15 @@ pub fn verify_backup(app:AppHandle,file_name:String)->Result<BackupVerification,
  let canonical_file=dir.join(&file_name).canonicalize().map_err(|e|format!("تعذر العثور على النسخة: {e}"))?;
  if canonical_file.parent()!=Some(canonical_dir.as_path()) || !canonical_file.is_file() { return Err("مسار النسخة الاحتياطية خارج مجلد النسخ المعتمد".into()); }
  let connection=Connection::open_with_flags(&canonical_file,OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(|e|format!("تعذر فتح النسخة للقراءة فقط: {e}"))?;
+ let required_tables:i64=connection.query_row(
+  "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('schema_migrations','cheques','bank_statement_entries','collections','allocations','outgoing_payments','payment_details','treasury_ledger')",
+  [],|r|r.get(0)
+ ).map_err(|e|e.to_string())?;
+ if required_tables!=8 { return Err("الملف ليس نسخة مكتملة من قاعدة بيانات CHEQUE".into()); }
+ let migration_count:i64=connection.query_row(
+  "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4)",[],|r|r.get(0)
+ ).map_err(|e|format!("سجل ترحيلات قاعدة البيانات غير صالح: {e}"))?;
+ if migration_count!=3 { return Err("نسخة قاعدة البيانات لا تحتوي على جميع التحديثات المطلوبة".into()); }
  let integrity:String=connection.query_row("PRAGMA integrity_check",[],|r|r.get(0)).map_err(|e|e.to_string())?;
  if integrity!="ok" { return Err(format!("فشل فحص سلامة SQLite: {integrity}")); }
  let mut stmt=connection.prepare("PRAGMA foreign_key_check").map_err(|e|e.to_string())?;

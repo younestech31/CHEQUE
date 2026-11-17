@@ -25,6 +25,7 @@ db.executescript((root/'src-tauri/migrations/0006_treasury_reconciliation.sql').
 db.execute("INSERT INTO schema_migrations(version) VALUES(6)")
 db.executescript((root/'src-tauri/migrations/0007_bank_match_date_guard.sql').read_text(encoding='utf-8'))
 db.executescript((root/'src-tauri/migrations/0008_treasury_closing_verification.sql').read_text(encoding='utf-8'))
+db.execute("INSERT INTO schema_migrations(version) VALUES(8)")
 db.execute("INSERT INTO schema_migrations(version) VALUES(7)")
 def blocked(fn,label):
  try: fn()
@@ -99,8 +100,6 @@ assert cash==50000,cash
 db.execute("UPDATE outgoing_payments SET status='reserved' WHERE id=3")
 assert db.execute("SELECT status FROM outgoing_payments WHERE id=3").fetchone()[0]=='reserved'
 
-print('All cheque, treasury, classification, freeze, payment and backup-schema tests passed.')
-
 # Match an executed payment without posting a duplicate cash movement.
 db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,debit_minor) VALUES('ST-11','2026-11-30','2026-11-13',30000)")
 ledger_before=db.execute("SELECT SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END) FROM treasury_ledger").fetchone()[0]
@@ -170,3 +169,5 @@ blocked(lambda:db.execute("""INSERT INTO treasury_closing_verifications(statemen
  VALUES('ST-13','2026-11-14',65000,65000,0,0,0,0,0,'matched')"""),'duplicate closing period')
 assert db.execute("PRAGMA integrity_check").fetchone()[0]=='ok'
 assert db.execute("PRAGMA foreign_key_check").fetchall()==[]
+
+print('All cheque, treasury, classification, payment, closing reconciliation and backup-schema tests passed.')

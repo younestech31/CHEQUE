@@ -19,7 +19,7 @@ pub fn dashboard_summary(state:State<'_,AppState>)->Result<DashboardSummary,Stri
  let db=state.db.lock().map_err(|_|"تعذر الوصول إلى قاعدة البيانات".to_string())?;
  let c=&db.connection;
  let q=|sql:&str|c.query_row(sql,params![],|r|r.get::<_,i64>(0)).map_err(|e|e.to_string());
- let balance=q("SELECT COALESCE(SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END),0) FROM treasury_ledger")?;
+ let balance=q("SELECT COALESCE(SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END),0) FROM treasury_ledger WHERE movement_date >= COALESCE((SELECT balance_date FROM treasury_opening_balance WHERE id=1),'0000-01-01')")?;
  let unclassified=q("SELECT COALESCE(SUM(c.amount_minor-COALESCE(a.total,0)),0) FROM collections c LEFT JOIN (SELECT collection_id,SUM(amount_minor) total FROM allocations GROUP BY collection_id) a ON a.collection_id=c.id")?;
  let entitled=q("SELECT COALESCE(SUM(amount_minor),0) FROM allocations")?;
  let frozen=q("SELECT COALESCE(SUM(amount_minor),0) FROM freezes WHERE released_at IS NULL")?;

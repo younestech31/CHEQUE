@@ -4,8 +4,16 @@ import sqlite3
 root=Path(__file__).resolve().parents[1]
 db=sqlite3.connect(':memory:')
 db.execute('PRAGMA foreign_keys=ON')
-for migration in ('0001_initial.sql','0002_cheques_and_statement_workflow.sql','0002_cheques_and_statement_workflow.sql'):
- db.executescript((root/'src-tauri/migrations'/migration).read_text(encoding='utf-8'))
+db.executescript((root/'src-tauri/migrations/0001_initial.sql').read_text(encoding='utf-8'))
+db.execute("CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT(datetime('now')))")
+db.executescript((root/'src-tauri/migrations/0002_cheques_and_statement_workflow.sql').read_text(encoding='utf-8'))
+db.execute("INSERT INTO schema_migrations(version) VALUES(2)")
+assert db.execute("SELECT COUNT(*) FROM schema_migrations WHERE version=2").fetchone()[0]==1
+assert {r[1] for r in db.execute('PRAGMA table_info(cheques)')} >= {'issue_date','notes'}
+assert {r[1] for r in db.execute('PRAGMA table_info(bank_statement_entries)')} >= {'description'}
+assert {r[1] for r in db.execute('PRAGMA table_info(collections)')} >= {'confirmation_reference','notes'}
+assert {r[1] for r in db.execute('PRAGMA table_info(audit_log)')} >= {'after_json'}
+assert db.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN('cheque_deposits','collection_cheques')").fetchone()[0]==2
 
 def blocked(fn,label):
  try: fn()
@@ -21,8 +29,8 @@ db.execute("INSERT INTO cheque_deposits(cheque_id,deposit_date,amount_minor) VAL
 blocked(lambda:db.execute("INSERT INTO cheque_deposits(cheque_id,deposit_date,amount_minor) VALUES(1,'2026-11-03',50000)"),'deposit cannot exceed cheque face value')
 assert db.execute('SELECT COUNT(*) FROM treasury_ledger').fetchone()[0]==0
 
-db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,bank_transaction_reference,credit_minor) VALUES('ST-11','2026-11-30','2026-11-03','TX-1',120000)")
-blocked(lambda:db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,bank_transaction_reference,credit_minor) VALUES('ST-11','2026-11-30','2026-11-03','TX-1',120000)"),'duplicate bank statement line')
+db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,bank_transaction_reference,credit_minor,description) VALUES('ST-11','2026-11-30','2026-11-03','TX-1',120000,'Cheque credit')")
+blocked(lambda:db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,bank_transaction_reference,credit_minor,description) VALUES('ST-11','2026-11-30','2026-11-03','TX-1',120000,'Cheque credit')"),'duplicate bank statement line')
 db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(1,'2026-11-03',70000)")
 db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(1,'2026-11-04',50000)")
 blocked(lambda:db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(1,'2026-11-04',1)"),'collections cannot exceed bank credit')

@@ -78,6 +78,19 @@ impl Database {
             tx.commit()?;
         }
 
+        let v5: Option<i64> = connection.query_row(
+            "SELECT version FROM schema_migrations WHERE version=5",
+            [],
+            |row| row.get(0),
+        ).optional()?;
+
+        if v5.is_none() {
+            let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            tx.execute_batch(include_str!("../../migrations/0005_lock_payment_detail_moves.sql"))?;
+            tx.execute("INSERT INTO schema_migrations(version) VALUES(5)", [])?;
+            tx.commit()?;
+        }
+
         Ok(Self { connection })
     }
 }

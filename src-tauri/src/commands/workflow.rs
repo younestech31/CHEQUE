@@ -137,10 +137,9 @@ pub fn create_treasury_opening_balance(
  if exists!=0{return Err("تم تسجيل الرصيد الافتتاحي مسبقاً؛ لا يمكن تكراره".into())}
  tx.execute("INSERT INTO treasury_opening_balance(id,amount_minor,balance_date,statement_reference) VALUES(1,?1,?2,?3)",
   params![amount_minor,balance_date,statement_reference.trim()]).map_err(|e|e.to_string())?;
- let id=tx.last_insert_rowid();
  tx.execute("INSERT INTO audit_log(entity_type,entity_id,action,after_json) VALUES('treasury','1','opening_balance',json_object('amount_minor',?1,'balance_date',?2,'statement_reference',?3))",
   params![amount_minor,balance_date,statement_reference.trim()]).map_err(|e|e.to_string())?;
- tx.commit().map_err(|e|e.to_string())?;let _=id;Ok(())
+ tx.commit().map_err(|e|e.to_string())?;Ok(())
 }
 
 #[tauri::command]

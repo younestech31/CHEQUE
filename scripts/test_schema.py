@@ -14,6 +14,7 @@ def blocked(fn,label):
  raise AssertionError('Expected blocked operation: '+label)
 
 db.execute("INSERT INTO clients(full_name) VALUES('Client')")
+db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,credit_minor) VALUES('ST-1','2026-11-01','2026-11-01',100000)")
 db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(1,'2026-11-01',100000)")
 db.execute("INSERT INTO allocations(collection_id,promoter_id,client_id,allocation_date,amount_minor,operation_type) VALUES(1,1,1,'2026-11-02',60000,'Deposit')")
 blocked(lambda:db.execute("INSERT INTO allocations(collection_id,promoter_id,client_id,allocation_date,amount_minor,operation_type) VALUES(1,1,1,'2026-11-02',50000,'Deposit')"),'allocation ceiling')

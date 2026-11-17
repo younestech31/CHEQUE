@@ -21,6 +21,8 @@ db.executescript((root/'src-tauri/migrations/0004_payments_and_freezes.sql').rea
 db.execute("INSERT INTO schema_migrations(version) VALUES(4)")
 db.executescript((root/'src-tauri/migrations/0005_lock_payment_detail_moves.sql').read_text(encoding='utf-8'))
 db.execute("INSERT INTO schema_migrations(version) VALUES(5)")
+db.executescript((root/'src-tauri/migrations/0006_treasury_reconciliation.sql').read_text(encoding='utf-8'))
+db.execute("INSERT INTO schema_migrations(version) VALUES(6)")
 def blocked(fn,label):
  try: fn()
  except sqlite3.IntegrityError: print('PASS',label); return
@@ -83,9 +85,23 @@ required_tables = db.execute("""
 """).fetchone()[0]
 assert required_tables == 8, required_tables
 assert db.execute(
- "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4,5)"
-).fetchone()[0] == 4
+ "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4,5,6)"
+).fetchone()[0] == 5
 assert db.execute("PRAGMA integrity_check").fetchone()[0] == 'ok'
 assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 
 print('All cheque, treasury, classification, freeze, payment and backup-schema tests passed.')
+
+# Match an executed payment without posting a duplicate cash movement.
+db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,debit_minor) VALUES('ST-11','2026-11-30','2026-11-13',30000)")
+ledger_before=db.execute("SELECT SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END) FROM treasury_ledger").fetchone()[0]
+db.execute("INSERT INTO bank_debit_reconciliations(bank_entry_id,amount_minor,reconciliation_type,payment_id) VALUES(3,30000,'payment',1)")
+ledger_after=db.execute("SELECT SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END) FROM treasury_ledger").fetchone()[0]
+assert ledger_after==ledger_before,(ledger_before,ledger_after)
+blocked(lambda:db.execute("INSERT INTO bank_debit_reconciliations(bank_entry_id,amount_minor,reconciliation_type,payment_id) VALUES(3,1,'payment',1)"),'bank debit reconciliation ceiling')
+db.execute("INSERT INTO bank_debit_reconciliations(bank_entry_id,amount_minor,reconciliation_type) VALUES(2,10000,'external')")
+assert db.execute("SELECT amount_minor,direction FROM treasury_ledger WHERE statement_entry_id=2").fetchone()==(10000,'out')
+blocked(lambda:db.execute("INSERT INTO bank_debit_reconciliations(bank_entry_id,amount_minor,reconciliation_type) VALUES(2,10000,'external')"),'external debit cannot be posted twice')
+blocked(lambda:db.execute("UPDATE bank_debit_reconciliations SET amount_minor=1 WHERE bank_entry_id=2"),'debit reconciliation immutable')
+assert db.execute("PRAGMA integrity_check").fetchone()[0]=='ok'
+assert db.execute("PRAGMA foreign_key_check").fetchall()==[]

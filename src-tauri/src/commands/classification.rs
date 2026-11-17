@@ -33,7 +33,7 @@ pub struct UnclassifiedCollectionRow{
 #[derive(Serialize)]
 #[serde(rename_all="camelCase")]
 pub struct AllocationRow{
- id:i64,collection_id:i64,collection_date:String,client_name:String,project_name:Option<String>,
+ id:i64,collection_id:i64,collection_date:String,statement_reference:String,client_name:String,project_name:Option<String>,
  operation_type:String,amount_minor:i64,allocation_date:String
 }
 #[derive(Deserialize)]
@@ -113,7 +113,7 @@ pub fn allocate_collection(state:State<'_,AppState>,input:NewAllocation)->Result
 pub fn list_promoter_allocations(state:State<'_,AppState>,promoter_id:i64)->Result<Vec<AllocationRow>,String>{
  if promoter_id<=0{return Err("معرف المرقي غير صحيح".into())}
  let db=state.db.lock().map_err(|_|lock_error())?;
- let mut s=db.connection.prepare("SELECT a.id,a.collection_id,c.collection_date,cl.full_name,p.name,a.operation_type,a.amount_minor,a.allocation_date FROM allocations a JOIN collections c ON c.id=a.collection_id JOIN clients cl ON cl.id=a.client_id LEFT JOIN projects p ON p.id=a.project_id WHERE a.promoter_id=?1 ORDER BY a.allocation_date DESC,a.id DESC").map_err(|e|e.to_string())?;
- let rows=s.query_map(params![promoter_id],|r|Ok(AllocationRow{id:r.get(0)?,collection_id:r.get(1)?,collection_date:r.get(2)?,client_name:r.get(3)?,project_name:r.get(4)?,operation_type:r.get(5)?,amount_minor:r.get(6)?,allocation_date:r.get(7)?})).map_err(|e|e.to_string())?;
+ let mut s=db.connection.prepare("SELECT a.id,a.collection_id,c.collection_date,e.statement_reference,cl.full_name,p.name,a.operation_type,a.amount_minor,a.allocation_date FROM allocations a JOIN collections c ON c.id=a.collection_id JOIN bank_statement_entries e ON e.id=c.bank_entry_id JOIN clients cl ON cl.id=a.client_id LEFT JOIN projects p ON p.id=a.project_id WHERE a.promoter_id=?1 ORDER BY a.allocation_date DESC,a.id DESC").map_err(|e|e.to_string())?;
+ let rows=s.query_map(params![promoter_id],|r|Ok(AllocationRow{id:r.get(0)?,collection_id:r.get(1)?,collection_date:r.get(2)?,statement_reference:r.get(3)?,client_name:r.get(4)?,project_name:r.get(5)?,operation_type:r.get(6)?,amount_minor:r.get(7)?,allocation_date:r.get(8)?})).map_err(|e|e.to_string())?;
  rows.collect::<Result<Vec<_>,_>>().map_err(|e|e.to_string())
 }

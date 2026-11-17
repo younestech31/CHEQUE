@@ -35,4 +35,15 @@ db.execute("UPDATE outgoing_payments SET status='executed',execution_date='2026-
 assert db.execute("SELECT amount_minor FROM treasury_ledger WHERE payment_id=1 AND direction='out'").fetchone()[0]==10000
 assert db.execute("SELECT SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END) FROM treasury_ledger").fetchone()[0]==90000
 blocked(lambda:db.execute("INSERT INTO freezes(allocation_id,amount_minor,reason,frozen_at) VALUES(1,51000,'يتجاوز المستحق المتبقي','2026-11-06')"),'freeze cannot overlap executed payment')
-print('All core schema, freeze and execution-ledger tests passed.')
+report = db.execute("""
+SELECT a.amount_minor,
+ COALESCE((SELECT SUM(f.amount_minor) FROM freezes f WHERE f.allocation_id=a.id AND f.released_at IS NULL),0),
+ COALESCE((SELECT SUM(pd.amount_minor) FROM payment_details pd JOIN outgoing_payments p ON p.id=pd.payment_id WHERE pd.allocation_id=a.id AND p.status='reserved'),0),
+ COALESCE((SELECT SUM(pd.amount_minor) FROM payment_details pd JOIN outgoing_payments p ON p.id=pd.payment_id WHERE pd.allocation_id=a.id AND p.status='executed'),0),
+ a.amount_minor
+ -COALESCE((SELECT SUM(f.amount_minor) FROM freezes f WHERE f.allocation_id=a.id AND f.released_at IS NULL),0)
+ -COALESCE((SELECT SUM(pd.amount_minor) FROM payment_details pd JOIN outgoing_payments p ON p.id=pd.payment_id WHERE pd.allocation_id=a.id AND p.status IN('reserved','executed')),0)
+FROM allocations a WHERE a.id=1
+""").fetchone()
+assert report == (60000, 0, 0, 10000, 50000), report
+print('All core schema, freeze, execution-ledger and financial-report tests passed.')

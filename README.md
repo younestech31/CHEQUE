@@ -42,7 +42,7 @@
 - ترحيلات قاعدة بيانات مرقمة ومطبقة داخل معاملات ذرية.
 
 ## التطوير على Windows
-يتطلب Node.js 20+ وRust toolchain وتهيئة Tauri 2.
+يتطلب Node.js 20+ وPython 3 وRust toolchain وتهيئة Tauri 2. ينشئ أمر Tauri أيقونات التطبيق تلقائياً قبل التشغيل أو البناء.
 
 ```powershell
 npm install

@@ -7,7 +7,7 @@ import PaymentManager from '../modules/payments/PaymentManager';
 import Reports from '../modules/reports/Reports';
 
 type Page='dashboard'|'cheques'|'treasury'|'classification'|'promoters'|'freezes'|'payments'|'reports';
-type Summary={treasuryBalanceMinor:number;unclassifiedMinor:number;classifiedEntitlementsMinor:number;activeFreezesMinor:number;reservedPaymentsMinor:number;executedPaymentsMinor:number;availableCashMinor:number};
+type Summary={treasuryBalanceMinor:number;unclassifiedMinor:number;classifiedEntitlementsMinor:number;activeFreezesMinor:number;reservedPaymentsMinor:number;executedPaymentsMinor:number;availableCashMinor:number;openingBalanceSet:boolean};
 const menu:{id:Page;label:string;icon:typeof LayoutDashboard}[]=[
  {id:'dashboard',label:'لوحة القيادة',icon:LayoutDashboard},{id:'cheques',label:'الشيكات الواردة',icon:ReceiptText},
  {id:'treasury',label:'الخزينة والتحصيل',icon:Wallet},{id:'classification',label:'تصنيف المبالغ',icon:Tags},
@@ -23,7 +23,7 @@ export default function App(){
  return <div className="layout"><aside><h2>CHEQUE</h2><small>إدارة التحصيل والخزينة</small><nav>{menu.map(({id,label,icon:Icon})=><button key={id} className={page===id?'selected':''} onClick={()=>{setPage(id);setError('')}}><Icon size={18}/>{label}</button>)}</nav><small className="offline">● يعمل محلياً على هذا الجهاز</small></aside>
  <main><header>CHEQUE　/　{title}</header><section><p className="eyebrow">إدارة مالية محلية</p><h1>{title}</h1><p>متابعة الشيكات والتحصيلات وتوزيع المستحقات والتحويلات.</p>
  {error&&<p className="error-msg">{error}</p>}
- {page==='dashboard'&&<><div className="notice"><b>مرحباً بك في CHEQUE</b><p>سجّل الشيك، ثم طابق التحصيل مع كشف الخزينة. لن يطلب منك تحديد المرقي إلا بعد تأكيد دخول المبلغ فعلياً.</p></div><div className="cards">{[['رصيد الخزينة الفعلي',summary?money(summary.treasuryBalanceMinor):'—'],['مبالغ محصلة غير مصنفة',summary?money(summary.unclassifiedMinor):'—'],['مستحقات مصنفة',summary?money(summary.classifiedEntitlementsMinor):'—'],['السيولة المتاحة',summary?money(summary.availableCashMinor):'—']].map(([k,v])=><article key={k}><small>{k}</small><strong>{v}</strong></article>)}</div><article className="panel"><b>سير العمل</b><p>استلام الشيك ← تسجيل الإيداع ← إدخال كشف الخزينة ← تأكيد التحصيل ← التصنيف ← التجميد أو التحويل.</p></article></>}
+ {page==='dashboard'&&<><div className="notice"><b>مرحباً بك في CHEQUE</b><p>سجّل الشيك، ثم طابق التحصيل مع كشف الخزينة. لن يطلب منك تحديد المرقي إلا بعد تأكيد دخول المبلغ فعلياً.</p></div><div className="cards">{[['رصيد الخزينة بعد التسوية',summary?money(summary.treasuryBalanceMinor):'—'],['مبالغ محصلة غير مصنفة',summary?money(summary.unclassifiedMinor):'—'],['مستحقات مصنفة',summary?money(summary.classifiedEntitlementsMinor):'—'],['السيولة المتاحة',summary?money(summary.availableCashMinor):'—']].map(([k,v])=><article key={k}><small>{k}</small><strong>{v}</strong></article>)}</div>{summary&&!summary.openingBalanceSet&&<article className="panel"><b>تنبيه: لم يثبت الرصيد الافتتاحي</b><p>رصيد الخزينة المعروض غير معتمد للمطابقة النهائية. انتقل إلى الخزينة والتحصيل وسجّل رصيد بداية يوم كشف الحساب قبل إجراء الحجوزات.</p></article>}<article className="panel"><b>سير العمل</b><p>استلام الشيك ← تسجيل الإيداع ← إدخال كشف الخزينة ← تأكيد التحصيل ← التصنيف ← التجميد أو التحويل.</p></article></>}
  {(page==='cheques'||page==='treasury')&&<ChequeTreasury initialTab={page}/>}
  {page==='classification'&&<Classification mode='classification'/>}
  {page==='promoters'&&<Classification mode='promoters'/>}

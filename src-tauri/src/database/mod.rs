@@ -1,8 +1,20 @@
-use rusqlite::{Connection, Result, OptionalExtension, TransactionBehavior};
+use rusqlite::{params, Connection, OptionalExtension, Result, TransactionBehavior};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
 pub struct Database { pub connection: Connection }
+
+fn ensure_column(conn: &Connection, table: &str, column: &str, definition: &str) -> Result<()> {
+    let exists: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info(?1) WHERE name=?2",
+        params![table, column],
+        |row| row.get(0),
+    )?;
+    if exists == 0 {
+        conn.execute_batch(&format!("ALTER TABLE {table} ADD COLUMN {column} {definition}"))?;
+    }
+    Ok(())
+}
 
 impl Database {
     pub fn open(app: &AppHandle) -> Result<Self> {
@@ -26,6 +38,12 @@ impl Database {
 
         if v2.is_none() {
             let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            ensure_column(&tx, "cheques", "issue_date", "TEXT")?;
+            ensure_column(&tx, "cheques", "notes", "TEXT")?;
+            ensure_column(&tx, "bank_statement_entries", "description", "TEXT")?;
+            ensure_column(&tx, "collections", "confirmation_reference", "TEXT")?;
+            ensure_column(&tx, "collections", "notes", "TEXT")?;
+            ensure_column(&tx, "audit_log", "after_json", "TEXT")?;
             tx.execute_batch(include_str!("../../migrations/0002_cheques_and_statement_workflow.sql"))?;
             tx.execute("INSERT INTO schema_migrations(version) VALUES(2)", [])?;
             tx.commit()?;
@@ -39,6 +57,7 @@ impl Database {
 
         if v3.is_none() {
             let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            ensure_column(&tx, "allocations", "operation_type", "TEXT NOT NULL DEFAULT 'غير محدد'")?;
             tx.execute_batch(include_str!("../../migrations/0003_classification.sql"))?;
             tx.execute("INSERT INTO schema_migrations(version) VALUES(3)", [])?;
             tx.commit()?;

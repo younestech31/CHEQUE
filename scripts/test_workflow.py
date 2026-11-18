@@ -27,6 +27,8 @@ db.executescript((root/'src-tauri/migrations/0007_bank_match_date_guard.sql').re
 db.executescript((root/'src-tauri/migrations/0008_treasury_closing_verification.sql').read_text(encoding='utf-8'))
 db.execute("INSERT INTO schema_migrations(version) VALUES(8)")
 db.execute("INSERT INTO schema_migrations(version) VALUES(7)")
+db.executescript((root/'src-tauri/migrations/0009_chronological_guards.sql').read_text(encoding='utf-8'))
+db.execute("INSERT INTO schema_migrations(version) VALUES(9)")
 def blocked(fn,label):
  try: fn()
  except sqlite3.IntegrityError: print('PASS',label); return
@@ -34,12 +36,14 @@ def blocked(fn,label):
 db.execute("INSERT INTO cheques(cheque_number,bank_name,received_date,amount_minor) VALUES('C-01','BNA','2026-11-01',100000)")
 blocked(lambda:db.execute("INSERT INTO cheques(cheque_number,bank_name,received_date,amount_minor) VALUES('C-01','BNA','2026-11-01',100000)"),'duplicate cheque')
 db.execute("INSERT INTO cheques(cheque_number,bank_name,received_date,amount_minor) VALUES('C-02','CPA','2026-11-01',80000)")
+blocked(lambda:db.execute("INSERT INTO cheque_deposits(cheque_id,deposit_date,amount_minor) VALUES(1,'2026-10-31',1000)"),'deposit cannot predate cheque receipt')
 db.execute("INSERT INTO cheque_deposits(cheque_id,deposit_date,amount_minor) VALUES(1,'2026-11-02',60000)")
 db.execute("INSERT INTO cheque_deposits(cheque_id,deposit_date,amount_minor) VALUES(2,'2026-11-02',80000)")
 blocked(lambda:db.execute("INSERT INTO cheque_deposits(cheque_id,deposit_date,amount_minor) VALUES(1,'2026-11-03',50000)"),'deposit exceeds cheque face value')
 assert db.execute('SELECT COUNT(*) FROM treasury_ledger').fetchone()[0]==0
 db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,bank_transaction_reference,credit_minor,description) VALUES('ST-11','2026-11-30','2026-11-03','TX-1',120000,'Cheque credit')")
 blocked(lambda:db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,bank_transaction_reference,credit_minor,description) VALUES('ST-11','2026-11-30','2026-11-03','TX-1',120000,'Cheque credit')"),'duplicate bank statement line')
+blocked(lambda:db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(1,'2026-11-02',1000)"),'collection cannot predate bank entry')
 db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(1,'2026-11-03',70000)")
 db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(1,'2026-11-04',50000)")
 blocked(lambda:db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(1,'2026-11-04',1)"),'collections exceed bank credit')
@@ -70,6 +74,8 @@ db.execute("INSERT INTO payment_details(payment_id,allocation_id,amount_minor) V
 blocked(lambda:db.execute("UPDATE payment_details SET payment_id=1 WHERE payment_id=2"),'cannot move details into a reserved payment')
 db.execute("UPDATE payment_details SET amount_minor=6000 WHERE payment_id=2")
 assert db.execute("SELECT amount_minor FROM payment_details WHERE payment_id=2").fetchone()[0] == 6000
+db.execute("UPDATE outgoing_payments SET status='reserved' WHERE id=2")
+blocked(lambda:db.execute("UPDATE outgoing_payments SET status='executed',execution_date='2026-11-07' WHERE id=2"),'payment execution cannot predate preparation')
 blocked(lambda:db.execute("INSERT INTO freezes(allocation_id,amount_minor,reason,frozen_at) VALUES(1,20001,'تجميد زائد','2026-11-09')"),'freeze cannot overlap reserved amount')
 db.execute("UPDATE outgoing_payments SET status='executed',execution_date='2026-11-10' WHERE id=1")
 assert db.execute("SELECT SUM(amount_minor) FROM treasury_ledger WHERE payment_id=1 AND direction='out'").fetchone()[0]==30000
@@ -90,8 +96,8 @@ required_tables = db.execute("""
 """).fetchone()[0]
 assert required_tables == 11, required_tables
 assert db.execute(
- "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4,5,6,7,8)"
-).fetchone()[0] == 7
+ "SELECT COUNT(*) FROM schema_migrations WHERE version IN (2,3,4,5,6,7,8,9)"
+).fetchone()[0] == 8
 assert db.execute("PRAGMA integrity_check").fetchone()[0] == 'ok'
 assert db.execute("PRAGMA foreign_key_check").fetchall() == []
 db.execute("INSERT INTO treasury_opening_balance(id,amount_minor,balance_date,statement_reference) VALUES(1,50000,'2026-11-12','OPEN-1')")

@@ -138,7 +138,7 @@ SELECT
  (SELECT COUNT(*) FROM bank_statement_entries e WHERE e.entry_date>=? AND e.entry_date<=?
   AND e.debit_minor>COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0))
 """
-params=('2026-11-12','2026-11-14','2026-11-14','2026-11-14','2026-11-14','2026-11-14','2026-11-14','2026-11-14','2026-11-14','2026-11-14','2026-11-14','2026-11-14')
+params=('2026-11-12','2026-11-14')+('2026-11-14',)*11
 computed,pending_cr,pending_dr,count_cr,count_dr=db.execute(calc_sql,params).fetchone()
 assert (computed,pending_cr,pending_dr,count_cr,count_dr)==(65000,5000,5000,1,1),(computed,pending_cr,pending_dr,count_cr,count_dr)
 difference=computed-65000

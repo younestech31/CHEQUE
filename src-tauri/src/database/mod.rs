@@ -131,6 +131,19 @@ impl Database {
             tx.commit()?;
         }
 
+        let v9: Option<i64> = connection.query_row(
+            "SELECT version FROM schema_migrations WHERE version=9",
+            [],
+            |row| row.get(0),
+        ).optional()?;
+
+        if v9.is_none() {
+            let tx = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+            tx.execute_batch(include_str!("../../migrations/0009_chronological_guards.sql"))?;
+            tx.execute("INSERT INTO schema_migrations(version) VALUES(9)", [])?;
+            tx.commit()?;
+        }
+
         Ok(Self { connection })
     }
 }

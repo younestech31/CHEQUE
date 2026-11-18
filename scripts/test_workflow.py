@@ -127,18 +127,18 @@ calc_sql="""
 SELECT
  COALESCE((SELECT SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END)
   FROM treasury_ledger WHERE movement_date>=? AND movement_date<=?),0),
- COALESCE((SELECT SUM(credit_minor-COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0))
+ COALESCE((SELECT SUM(credit_minor-COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id AND c.collection_date<=?),0))
   FROM bank_statement_entries e WHERE e.entry_date>=? AND e.entry_date<=?
-   AND e.credit_minor>COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0)),0),
+   AND e.credit_minor>COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id AND c.collection_date<=?),0)),0),
  COALESCE((SELECT SUM(debit_minor-COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0))
   FROM bank_statement_entries e WHERE e.entry_date>=? AND e.entry_date<=?
    AND e.debit_minor>COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0)),0),
  (SELECT COUNT(*) FROM bank_statement_entries e WHERE e.entry_date>=? AND e.entry_date<=?
-  AND e.credit_minor>COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0)),
+  AND e.credit_minor>COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id AND c.collection_date<=?),0)),
  (SELECT COUNT(*) FROM bank_statement_entries e WHERE e.entry_date>=? AND e.entry_date<=?
   AND e.debit_minor>COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0))
 """
-params=('2026-11-12','2026-11-14')*5
+params=('2026-11-12','2026-11-14','2026-11-14','2026-11-14','2026-11-14','2026-11-14','2026-11-14','2026-11-14','2026-11-14','2026-11-14','2026-11-14','2026-11-14')
 computed,pending_cr,pending_dr,count_cr,count_dr=db.execute(calc_sql,params).fetchone()
 assert (computed,pending_cr,pending_dr,count_cr,count_dr)==(65000,5000,5000,1,1),(computed,pending_cr,pending_dr,count_cr,count_dr)
 difference=computed-65000

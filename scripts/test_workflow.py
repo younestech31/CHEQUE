@@ -138,7 +138,8 @@ SELECT
  (SELECT COUNT(*) FROM bank_statement_entries e WHERE e.entry_date>=? AND e.entry_date<=?
   AND e.debit_minor>COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0))
 """
-params=('2026-11-12','2026-11-14')+('2026-11-14',)*11
+params_for_close=lambda close:('2026-11-12',close,close,'2026-11-12',close,close,'2026-11-12',close,'2026-11-12',close,close,'2026-11-12',close)
+params=params_for_close('2026-11-14')
 computed,pending_cr,pending_dr,count_cr,count_dr=db.execute(calc_sql,params).fetchone()
 assert (computed,pending_cr,pending_dr,count_cr,count_dr)==(65000,5000,5000,1,1),(computed,pending_cr,pending_dr,count_cr,count_dr)
 difference=computed-65000
@@ -150,13 +151,13 @@ assert first_close==('pending',0,5000,5000),first_close
 db.execute("INSERT INTO bank_debit_reconciliations(bank_entry_id,amount_minor,reconciliation_type) VALUES(?,5000,'external')",(debit_entry,))
 # A collection confirmed with a later effective date must not clear an earlier statement closing.
 db.execute("INSERT INTO collections(bank_entry_id,collection_date,amount_minor) VALUES(?, '2026-11-16',5000)",(credit_entry,))
-params_15=('2026-11-12','2026-11-15')+('2026-11-15',)*11
+params_15=params_for_close('2026-11-15')
 computed,pending_cr,pending_dr,count_cr,count_dr=db.execute(calc_sql,params_15).fetchone()
 assert (computed,pending_cr,pending_dr,count_cr,count_dr)==(60000,5000,0,1,0),(computed,pending_cr,pending_dr,count_cr,count_dr)
 db.execute("""INSERT INTO treasury_closing_verifications(statement_reference,closing_date,statement_balance_minor,computed_balance_minor,difference_minor,pending_credit_minor,pending_debit_minor,pending_credit_count,pending_debit_count,status)
  VALUES('ST-13','2026-11-15',60000,?,0,5000,0,1,0,'pending')""",(computed,))
 assert db.execute("SELECT status,pending_credit_minor FROM treasury_closing_verifications WHERE closing_date='2026-11-15'").fetchone()==('pending',5000)
-params_16=('2026-11-12','2026-11-16')+('2026-11-16',)*11
+params_16=params_for_close('2026-11-16')
 computed,pending_cr,pending_dr,count_cr,count_dr=db.execute(calc_sql,params_16).fetchone()
 assert (computed,pending_cr,pending_dr,count_cr,count_dr)==(65000,0,0,0,0),(computed,pending_cr,pending_dr,count_cr,count_dr)
 db.execute("""INSERT INTO treasury_closing_verifications(statement_reference,closing_date,statement_balance_minor,computed_balance_minor,difference_minor,pending_credit_minor,pending_debit_minor,pending_credit_count,pending_debit_count,status)

@@ -83,10 +83,6 @@ db.execute("INSERT INTO treasury_ledger(movement_type,movement_date,amount_minor
 db.execute("INSERT INTO outgoing_payments(payment_reference,payment_type,promoter_id,preparation_date) VALUES('PAY-02','exceptional',2,'2026-11-12')")
 db.execute("INSERT INTO payment_details(payment_id,allocation_id,amount_minor) VALUES(3,2,30000)")
 blocked(lambda:db.execute("UPDATE outgoing_payments SET status='reserved' WHERE id=3"),'reservation cannot exceed actual treasury cash')
-db.execute("INSERT INTO outgoing_payments(payment_reference,payment_type,promoter_id,preparation_date) VALUES('PAY-DATE','exceptional',2,'2026-11-12')")
-db.execute("INSERT INTO payment_details(payment_id,allocation_id,amount_minor) VALUES(4,2,1)")
-db.execute("UPDATE outgoing_payments SET status='reserved' WHERE id=4")
-blocked(lambda:db.execute("UPDATE outgoing_payments SET status='executed',execution_date='2026-11-11' WHERE id=4"),'payment execution cannot predate preparation')
 # Backup verification prerequisites: required application schema and migrations must exist.
 required_tables = db.execute("""
  SELECT COUNT(*) FROM sqlite_master
@@ -107,6 +103,11 @@ cash=db.execute("SELECT COALESCE(SUM(CASE direction WHEN 'in' THEN amount_minor 
 assert cash==50000,cash
 db.execute("UPDATE outgoing_payments SET status='reserved' WHERE id=3")
 assert db.execute("SELECT status FROM outgoing_payments WHERE id=3").fetchone()[0]=='reserved'
+db.execute("INSERT INTO allocations(collection_id,promoter_id,client_id,allocation_date,amount_minor,operation_type) VALUES(2,2,2,'2026-11-12',10000,'اختبار')")
+db.execute("INSERT INTO outgoing_payments(payment_reference,payment_type,promoter_id,preparation_date) VALUES('PAY-DATE','exceptional',2,'2026-11-12')")
+db.execute("INSERT INTO payment_details(payment_id,allocation_id,amount_minor) VALUES(4,3,1)")
+db.execute("UPDATE outgoing_payments SET status='reserved' WHERE id=4")
+blocked(lambda:db.execute("UPDATE outgoing_payments SET status='executed',execution_date='2026-11-11' WHERE id=4"),'payment execution cannot predate preparation')
 
 # Match an executed payment without posting a duplicate cash movement.
 db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,debit_minor) VALUES('ST-11','2026-11-30','2026-11-13',30000)")

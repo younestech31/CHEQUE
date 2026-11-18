@@ -219,8 +219,8 @@ pub fn create_treasury_closing_verification(
   return Err("تاريخ الإقفال لا يمكن أن يسبق تاريخ الرصيد الافتتاحي".into())
  }
  let statement_exists:i64=tx.query_row(
-  "SELECT COUNT(*) FROM bank_statement_entries WHERE statement_reference=?1",
-  params![reference],|r|r.get(0)
+  "SELECT COUNT(*) FROM bank_statement_entries WHERE statement_reference=?1 AND entry_date<=?2",
+  params![reference,input.closing_date],|r|r.get(0)
  ).map_err(|e|e.to_string())?;
  if statement_exists==0{return Err("مرجع كشف الحساب غير موجود ضمن القيود المدخلة".into())}
  let (computed,pending_credit,pending_debit,credit_count,debit_count):(i64,i64,i64,i64,i64)=tx.query_row(

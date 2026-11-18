@@ -93,3 +93,5 @@ print('All core schema, freeze, execution-ledger and financial-report tests pass
 db.execute("INSERT INTO treasury_opening_balance(id,amount_minor,balance_date,statement_reference) VALUES(1,25000,'2026-11-01','OPEN-1')")
 assert db.execute("SELECT amount_minor,direction FROM treasury_ledger WHERE movement_type='opening_balance'").fetchone()==(25000,'in')
 blocked(lambda:db.execute("INSERT INTO treasury_opening_balance(id,amount_minor,balance_date,statement_reference) VALUES(1,1,'2026-11-01','OPEN-2')"),'opening balance is single-entry')
+
+db.executescript((root/'src-tauri/migrations/0009_chronological_guards.sql').read_text(encoding='utf-8'))

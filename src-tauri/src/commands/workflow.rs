@@ -227,14 +227,14 @@ pub fn create_treasury_closing_verification(
   "SELECT
     COALESCE((SELECT SUM(CASE direction WHEN 'in' THEN amount_minor ELSE -amount_minor END)
       FROM treasury_ledger WHERE movement_date>=?1 AND movement_date<=?2),0),
-    COALESCE((SELECT SUM(credit_minor-COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0))
+    COALESCE((SELECT SUM(credit_minor-COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id AND c.collection_date<=?2),0))
       FROM bank_statement_entries e WHERE e.entry_date>=?1 AND e.entry_date<=?2
-       AND e.credit_minor>COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0)),0),
+       AND e.credit_minor>COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id AND c.collection_date<=?2),0)),0),
     COALESCE((SELECT SUM(debit_minor-COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0))
       FROM bank_statement_entries e WHERE e.entry_date>=?1 AND e.entry_date<=?2
        AND e.debit_minor>COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0)),0),
     (SELECT COUNT(*) FROM bank_statement_entries e WHERE e.entry_date>=?1 AND e.entry_date<=?2
-      AND e.credit_minor>COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id),0)),
+      AND e.credit_minor>COALESCE((SELECT SUM(c.amount_minor) FROM collections c WHERE c.bank_entry_id=e.id AND c.collection_date<=?2),0)),
     (SELECT COUNT(*) FROM bank_statement_entries e WHERE e.entry_date>=?1 AND e.entry_date<=?2
       AND e.debit_minor>COALESCE((SELECT SUM(r.amount_minor) FROM bank_debit_reconciliations r WHERE r.bank_entry_id=e.id),0))",
   params![opening_date,input.closing_date],

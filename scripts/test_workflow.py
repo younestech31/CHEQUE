@@ -166,7 +166,9 @@ assert db.execute("SELECT status,difference_minor FROM treasury_closing_verifica
 blocked(lambda:db.execute("UPDATE treasury_closing_verifications SET status='matched' WHERE statement_reference='ST-13'"),'closing verification immutable update')
 blocked(lambda:db.execute("DELETE FROM treasury_closing_verifications WHERE statement_reference='ST-13'"),'closing verification immutable delete')
 # A reference containing only entries after the requested closing date cannot validate that earlier close.
+db.execute("INSERT INTO bank_statement_entries(statement_reference,statement_date,entry_date,credit_minor) VALUES('ST-FUTURE','2026-11-30','2026-11-17',1000)")
 assert db.execute("SELECT COUNT(*) FROM bank_statement_entries WHERE statement_reference=? AND entry_date<=?",('ST-FUTURE','2026-11-16')).fetchone()[0] == 0
+assert db.execute("SELECT COUNT(*) FROM bank_statement_entries WHERE statement_reference=? AND entry_date<=?",('ST-FUTURE','2026-11-17')).fetchone()[0] == 1
 blocked(lambda:db.execute("""INSERT INTO treasury_closing_verifications(statement_reference,closing_date,statement_balance_minor,computed_balance_minor,difference_minor,pending_credit_minor,pending_debit_minor,pending_credit_count,pending_debit_count,status)
  VALUES('ST-13','2026-11-14',65000,65000,0,0,0,0,0,'matched')"""),'duplicate closing period')
 assert db.execute("PRAGMA integrity_check").fetchone()[0]=='ok'
